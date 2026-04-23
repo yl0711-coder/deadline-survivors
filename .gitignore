@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+dist/
+build/
+*.spec
+*.egg-info/
+.DS_Store
+.venv/
+.pyinstaller/
+.deadline_survivors/

@@ -1,0 +1,28 @@
+from __future__ import annotations
+
+WIDTH = 1280
+HEIGHT = 720
+FPS = 60
+TITLE = "Deadline Survivors"
+
+BG = (19, 22, 29)
+PANEL = (29, 35, 46)
+GRID = (34, 42, 55)
+TEXT = (239, 242, 248)
+MUTED = (149, 159, 178)
+ACCENT = (255, 177, 66)
+GREEN = (93, 201, 136)
+RED = (232, 89, 89)
+BLUE = (98, 164, 255)
+PURPLE = (191, 131, 255)
+
+PLAYER_COLOR = (253, 215, 90)
+BUG_COLOR = (235, 96, 96)
+MEETING_COLOR = (92, 167, 255)
+ALERT_COLOR = (255, 140, 72)
+SCOPE_COLOR = (187, 120, 255)
+XP_COLOR = (91, 214, 180)
+PROJECTILE_COLOR = (255, 240, 170)
+
+SAVE_DIRNAME = ".deadline_survivors"
+SAVE_FILENAME = "save.json"

@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deadline-survivors"
+version = "0.1.0"
+description = "A local Python action game about surviving bugs, meetings, and alerts."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pygame-ce>=2.5,<3.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
