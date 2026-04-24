@@ -20,6 +20,7 @@ from .constants import (
     HEIGHT,
     MEETING_COLOR,
     MUTED,
+    OUTAGE_COLOR,
     PANEL,
     PLAYER_COLOR,
     PROJECTILE_COLOR,
@@ -31,7 +32,7 @@ from .constants import (
     WIDTH,
     XP_COLOR,
 )
-from .storage import load_best_time, save_best_time
+from .storage import load_best_time, load_progression, save_best_time, save_progression
 
 
 @dataclass
@@ -80,6 +81,8 @@ ENEMY_TYPES = [
     EnemyType("Scope Creep", 20, 86, 34, 10, SCOPE_COLOR, 0.35),
 ]
 
+OUTAGE_BOSS = EnemyType("Outage", 34, 78, 280, 18, OUTAGE_COLOR, 0.0)
+
 # Level-up upgrades are run-long build choices. Temporary rescue effects such
 # as healing, screen clear, and attack haste are handled by powerups instead.
 UPGRADES = [
@@ -91,6 +94,10 @@ UPGRADES = [
     Upgrade("pierce", "Rollback Thread", "Patches pierce one extra issue."),
     Upgrade("pulse", "Pager Burst", "Unlock a periodic incident sweep around the player."),
     Upgrade("recovery", "Quiet Hour", "Recover 2 HP every 6 seconds."),
+    Upgrade("chain", "Code Review", "Patches chain into nearby issues after a hit."),
+    Upgrade("drone", "Pair Programmer", "Add an orbiting helper that ships extra patches."),
+    Upgrade("failsafe", "Rollback Guard", "Low health triggers an emergency guard pulse."),
+    Upgrade("overclock", "Overclocked Build", "Overdrive patches burst into a small blast."),
 ]
 
 # Spawn phases keep the first minute approachable, then gradually add pressure.
@@ -115,6 +122,48 @@ DIFFICULTIES = [
     ),
 ]
 
+ACHIEVEMENT_DEFS = {
+    "first_overdrive": "First Patch Rush",
+    "first_deploy": "First Deploy",
+    "first_outage": "First Outage",
+    "crunch_survivor": "Crunch Survivor",
+    "deploy_addict": "Deploy Addict",
+    "pair_flow": "Pair Flow",
+    "review_cascade": "Review Cascade",
+    "bug_tracker": "Bug Tracker",
+}
+
+ACHIEVEMENT_GROUPS = [
+    (
+        "Milestones",
+        [
+            ("first_overdrive", "Reach Overdrive for the first time."),
+            ("first_deploy", "Complete a deploy window for the first time."),
+            ("first_outage", "Defeat a Production Outage."),
+        ],
+    ),
+    (
+        "Challenges",
+        [
+            ("crunch_survivor", "Survive 10 minutes on Crunch difficulty."),
+            ("deploy_addict", "Complete 5 deploys in one run."),
+        ],
+    ),
+    (
+        "Build Goals",
+        [
+            ("pair_flow", "Reach 2 Pair Programmer helpers."),
+            ("review_cascade", "Chain through 3 targets in one cascade."),
+        ],
+    ),
+    (
+        "Mastery",
+        [
+            ("bug_tracker", "Fix 500 bugs across runs."),
+        ],
+    ),
+]
+
 
 class Game:
     def __init__(self) -> None:
@@ -127,6 +176,7 @@ class Game:
         self.small_font = pygame.font.SysFont("consolas", 18)
         self.large_font = pygame.font.SysFont("consolas", 52, bold=True)
         self.best_time = load_best_time()
+        self.progression = load_progression()
         self.selected_difficulty = "normal"
         self.sound_enabled = False
         self.sounds: dict[str, pygame.mixer.Sound] = {}
@@ -134,11 +184,13 @@ class Game:
         self.shake_timer = 0.0
         self.shake_strength = 0.0
         self.init_audio()
+        self.menu_return_state = "title"
         self.reset()
 
     def reset(self) -> None:
         """Reset all run-local state before returning to title or starting."""
         self.state = "title"
+        self.menu_return_state = "title"
         self.time_survived = 0.0
         self.level = 1
         self.xp = 0.0
@@ -169,6 +221,7 @@ class Game:
         self.pulse_radius = 130.0
         self.pulse_damage = 22.0
         self.crisis_timer = 24.0
+        self.boss_timer = 52.0
         self.crisis_name = ""
         self.crisis_banner_timer = 0.0
         self.hazard_timer = 12.0
@@ -179,6 +232,16 @@ class Game:
         self.haste_timer = 0.0
         self.momentum = 0.0
         self.momentum_tier = "Idle"
+        self.max_momentum = 0.0
+        self.max_chain_hits = 1
+        self.chain_count = 0
+        self.chain_range = 0.0
+        self.drone_count = 0
+        self.drone_timer = 0.75
+        self.drone_cooldown = 1.1
+        self.failsafe_level = 0
+        self.failsafe_cooldown = 0.0
+        self.overclock_level = 0
         self.fire_sound_timer = 0.0
         self.shake_timer = 0.0
         self.shake_strength = 0.0
@@ -188,12 +251,15 @@ class Game:
             "meetings_dodged": 0,
             "alerts_silenced": 0,
             "scope_trimmed": 0,
+            "outages_resolved": 0,
             "deploys": 0,
             "powerups": 0,
+            "failsafe_triggers": 0,
         }
         self.hit_flash = 0.0
         self.level_flash = 0.0
         self.kill_flash = 0.0
+        self.new_achievements: list[str] = []
         self.floating_texts: list[dict] = []
         self.enemies: list[dict] = []
         self.projectiles: list[dict] = []
@@ -318,6 +384,22 @@ class Game:
             )
             self.regen_timer = self.regen_interval
             self.spawn_floating_text(self.player_x, self.player_y - 44, "Recovery up", BLUE)
+        elif key == "chain":
+            self.chain_count += 1
+            self.chain_range = 120 + self.chain_count * 20
+            self.spawn_floating_text(self.player_x, self.player_y - 44, "Code review", PURPLE)
+        elif key == "drone":
+            self.drone_count += 1
+            self.drone_cooldown = max(0.34, self.drone_cooldown * 0.86)
+            self.drone_timer = min(self.drone_timer, 0.35)
+            self.spawn_floating_text(self.player_x, self.player_y - 44, "Pair online", GREEN)
+        elif key == "failsafe":
+            self.failsafe_level += 1
+            self.failsafe_cooldown = min(self.failsafe_cooldown, 3.0)
+            self.spawn_floating_text(self.player_x, self.player_y - 44, "Guard armed", BLUE)
+        elif key == "overclock":
+            self.overclock_level += 1
+            self.spawn_floating_text(self.player_x, self.player_y - 44, "Build overclocked", ACCENT)
         self.play_sound("level")
 
     def run(self) -> int:
@@ -329,11 +411,19 @@ class Game:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         return 0
+                    if self.state == "achievements":
+                        if event.key in (pygame.K_a, pygame.K_BACKSPACE):
+                            self.state = self.menu_return_state
+                        continue
                     if self.state in {"playing", "paused"} and event.key == pygame.K_p:
                         self.state = "paused" if self.state == "playing" else "playing"
                         self.play_sound("pause")
                         continue
                     if self.state in {"title", "game_over"}:
+                        if event.key == pygame.K_a:
+                            self.menu_return_state = self.state
+                            self.state = "achievements"
+                            continue
                         if event.key in (pygame.K_1, pygame.K_KP1):
                             self.selected_difficulty = "casual"
                         elif event.key in (pygame.K_2, pygame.K_KP2):
@@ -377,14 +467,17 @@ class Game:
         self.haste_timer = max(0.0, self.haste_timer - dt)
         self.fire_sound_timer = max(0.0, self.fire_sound_timer - dt)
         self.shake_timer = max(0.0, self.shake_timer - dt)
+        self.failsafe_cooldown = max(0.0, self.failsafe_cooldown - dt)
         if self.shake_timer <= 0:
             self.shake_strength = 0.0
 
         self.move_player(dt)
         self.update_momentum(dt)
         self.update_regen(dt)
+        self.update_drone(dt)
         self.update_objective(dt)
         self.update_crisis_director(dt)
+        self.update_boss_director(dt)
         self.update_hazards(dt)
 
         if self.spawn_timer <= 0:
@@ -412,6 +505,7 @@ class Game:
             if self.time_survived > self.best_time:
                 self.best_time = self.time_survived
                 save_best_time(self.best_time)
+            self.finalize_run_progression()
 
     def current_phase(self) -> Phase:
         elapsed = self.time_survived
@@ -439,6 +533,7 @@ class Game:
             self.momentum = min(1.0, self.momentum + dt * 0.9)
         else:
             self.momentum = max(0.0, self.momentum - dt * 1.15)
+        self.max_momentum = max(self.max_momentum, self.momentum)
 
         self.momentum_tier = self.current_momentum_tier()
         if self.momentum_tier != previous_tier and self.momentum_tier != "Idle":
@@ -448,6 +543,8 @@ class Game:
                 self.momentum_tier,
                 GREEN,
             )
+            if self.momentum_tier == "Overdrive":
+                self.unlock_achievement("first_overdrive")
 
     def current_momentum_tier(self) -> str:
         if self.momentum >= 0.8:
@@ -517,6 +614,7 @@ class Game:
         )
         self.spawn_floating_text(self.player_x, self.player_y - 48, "Focus mode", GREEN)
         self.play_sound("deploy")
+        self.unlock_achievement("first_deploy")
         self.objective = None
         self.objective_timer = max(8.0, 20.0 - min(self.level, 18) * 0.5)
 
@@ -539,6 +637,44 @@ class Game:
                 f"Pulse x{hit_count}",
                 PURPLE,
             )
+
+    def update_drone(self, dt: float) -> None:
+        if self.drone_count <= 0 or not self.enemies:
+            return
+        self.drone_timer -= dt
+        if self.drone_timer > 0:
+            return
+
+        self.drone_timer = self.drone_cooldown
+        damage_multiplier = 0.58 + min(0.3, self.drone_count * 0.08)
+        orbit_radius = 34
+        for index in range(self.drone_count):
+            angle = self.time_survived * 2.4 + index * (2 * pi / max(1, self.drone_count))
+            origin_x = self.player_x + cos(angle) * orbit_radius
+            origin_y = self.player_y + sin(angle) * orbit_radius
+            target = min(
+                self.enemies,
+                key=lambda enemy: dist((origin_x, origin_y), (enemy["x"], enemy["y"])),
+            )
+            shot_angle = atan2(target["y"] - origin_y, target["x"] - origin_x)
+            self.projectiles.append(
+                {
+                    "x": origin_x,
+                    "y": origin_y,
+                    "vx": cos(shot_angle) * self.projectile_speed * 0.88,
+                    "vy": sin(shot_angle) * self.projectile_speed * 0.88,
+                    "damage": self.projectile_damage * damage_multiplier,
+                    "radius": max(4, self.projectile_radius() - 1),
+                    "color": BLUE,
+                    "pierce": max(0, self.pierce - 1),
+                    "source": "drone",
+                    "chain": max(0, self.chain_count - 1),
+                    "chain_range": self.chain_range,
+                }
+            )
+        if self.fire_sound_timer <= 0:
+            self.play_sound("patch")
+            self.fire_sound_timer = 0.08
 
     def move_player(self, dt: float) -> None:
         keys = pygame.key.get_pressed()
@@ -665,6 +801,56 @@ class Game:
                 self.add_enemy(scope, elite=self.level >= 14 and random() < 0.5, near_player=True)
             self.add_enemy(meeting, elite=False, near_player=True)
 
+    def update_boss_director(self, dt: float) -> None:
+        if self.time_survived < 72 and self.level < 8:
+            return
+        if any(enemy["type"].name == "Outage" for enemy in self.enemies):
+            return
+
+        self.boss_timer -= dt
+        if self.boss_timer > 0:
+            return
+
+        self.boss_timer = max(34.0, 58.0 - min(self.level, 18) * 1.15)
+        self.spawn_outage_boss()
+
+    def spawn_outage_boss(self) -> None:
+        angle = random() * pi * 2
+        distance_from_player = 320 + random() * 90
+        x = max(42, min(WIDTH - 42, self.player_x + cos(angle) * distance_from_player))
+        y = max(42, min(HEIGHT - 42, self.player_y + sin(angle) * distance_from_player))
+        difficulty = self.current_difficulty()
+        hp = (
+            OUTAGE_BOSS.hp
+            + max(0, self.level - 8) * 18
+            + self.time_survived * 0.95
+        ) * difficulty.enemy_hp_mult
+        self.enemies.append(
+            {
+                "type": OUTAGE_BOSS,
+                "x": x,
+                "y": y,
+                "hp": hp,
+                "max_hp": hp,
+                "damage": OUTAGE_BOSS.damage * difficulty.enemy_damage_mult,
+                "dash_timer": 0.0,
+                "dash_cooldown": 99.0,
+                "dash_vx": 0.0,
+                "dash_vy": 0.0,
+                "split_depth": 0,
+                "elite": True,
+                "boss": True,
+                "pulse_timer": 2.4,
+                "summon_timer": 4.8,
+                "rage": False,
+            }
+        )
+        self.crisis_name = "Production Outage"
+        self.crisis_banner_timer = 2.8
+        self.play_sound("crisis")
+        self.trigger_screen_shake(0.22, 4.8)
+        self.spawn_floating_text(x - 46, y - 76, "Production Outage", RED)
+
     def update_hazards(self, dt: float) -> None:
         """Create red floor pressure so strong builds still need to move."""
         if self.time_survived >= 60 or self.level >= 10:
@@ -779,6 +965,9 @@ class Game:
                     "radius": self.projectile_radius(),
                     "color": self.projectile_color(),
                     "pierce": self.pierce,
+                    "source": "player",
+                    "chain": self.chain_count,
+                    "chain_range": self.chain_range,
                 }
             )
         if self.fire_sound_timer <= 0:
@@ -814,6 +1003,7 @@ class Game:
 
     def update_projectiles(self, dt: float) -> None:
         next_projectiles = []
+        spawned_projectiles = []
         for projectile in self.projectiles:
             projectile["x"] += projectile["vx"] * dt
             projectile["y"] += projectile["vy"] * dt
@@ -840,12 +1030,82 @@ class Game:
                     hit = True
                     if projectile["pierce"] > 0:
                         projectile["pierce"] -= 1
+                        self.try_chain_projectile(projectile, enemy, spawned_projectiles)
                         hit = False
                     else:
+                        self.try_chain_projectile(projectile, enemy, spawned_projectiles)
+                        self.trigger_overclock_burst(projectile, enemy)
                         break
             if not hit:
                 next_projectiles.append(projectile)
-        self.projectiles = next_projectiles
+        self.projectiles = next_projectiles + spawned_projectiles
+
+    def try_chain_projectile(
+        self,
+        projectile: dict,
+        source_enemy: dict,
+        spawned_projectiles: list[dict],
+    ) -> None:
+        if projectile.get("chain", 0) <= 0:
+            return
+        target = self.find_chain_target(
+            source_enemy,
+            projectile.get("chain_range", self.chain_range),
+        )
+        if target is None:
+            return
+        remaining_chain = projectile["chain"] - 1
+        chain_hits = projectile.get("chain_hits", 1) + 1
+        self.max_chain_hits = max(self.max_chain_hits, chain_hits)
+        angle = atan2(target["y"] - source_enemy["y"], target["x"] - source_enemy["x"])
+        spawned_projectiles.append(
+            {
+                "x": source_enemy["x"],
+                "y": source_enemy["y"],
+                "vx": cos(angle) * self.projectile_speed * 1.04,
+                "vy": sin(angle) * self.projectile_speed * 1.04,
+                "damage": projectile["damage"] * 0.82,
+                "radius": max(4, projectile["radius"] - 1),
+                "color": PURPLE,
+                "pierce": 0,
+                "source": "chain",
+                "chain": max(0, remaining_chain),
+                "chain_hits": chain_hits,
+                "chain_range": projectile.get("chain_range", self.chain_range),
+            }
+        )
+        self.spawn_floating_text(source_enemy["x"], source_enemy["y"] - 26, "review", PURPLE)
+
+    def find_chain_target(self, source_enemy: dict, max_range: float) -> dict | None:
+        candidates = [
+            enemy
+            for enemy in self.enemies
+            if enemy is not source_enemy
+            and dist((source_enemy["x"], source_enemy["y"]), (enemy["x"], enemy["y"])) <= max_range
+        ]
+        if not candidates:
+            return None
+        return min(
+            candidates,
+            key=lambda enemy: dist((source_enemy["x"], source_enemy["y"]), (enemy["x"], enemy["y"])),
+        )
+
+    def trigger_overclock_burst(self, projectile: dict, source_enemy: dict) -> None:
+        if self.overclock_level <= 0 or self.momentum_tier != "Overdrive":
+            return
+        radius = 42 + self.overclock_level * 14
+        damage = projectile["damage"] * (0.28 + self.overclock_level * 0.05)
+        hit_count = 0
+        for enemy in self.enemies:
+            if enemy is source_enemy:
+                continue
+            if dist((source_enemy["x"], source_enemy["y"]), (enemy["x"], enemy["y"])) <= radius:
+                enemy["hp"] -= damage
+                hit_count += 1
+        if hit_count:
+            self.kill_flash = max(self.kill_flash, 0.12)
+            self.trigger_screen_shake(0.06, 1.6)
+            self.spawn_floating_text(source_enemy["x"] - 14, source_enemy["y"] - 34, "burst", ACCENT)
 
     def update_enemies(self, dt: float) -> None:
         alive = []
@@ -869,6 +1129,7 @@ class Game:
                         f"-{int(enemy.get('damage', enemy['type'].damage))}",
                         RED,
                     )
+                    self.trigger_failsafe()
 
             if enemy["hp"] <= 0:
                 value = 3.0
@@ -878,6 +1139,8 @@ class Game:
                     value = 7.0
                 elif enemy["type"].name == "Alert":
                     value = 4.0
+                elif enemy["type"].name == "Outage":
+                    value = 24.0
                 self.xp_shards.append({"x": enemy["x"], "y": enemy["y"], "value": value})
                 self.spawn_fix_text(enemy)
                 self.maybe_drop_powerup(enemy)
@@ -890,6 +1153,36 @@ class Game:
 
         self.enemies = alive
 
+    def trigger_failsafe(self) -> None:
+        if self.failsafe_level <= 0 or self.failsafe_cooldown > 0:
+            return
+        threshold = self.player_max_hp * max(0.2, 0.38 - self.failsafe_level * 0.03)
+        if self.player_hp > threshold:
+            return
+
+        self.failsafe_cooldown = max(15.0, 21.0 - self.failsafe_level * 2.0)
+        self.grace_timer = max(self.grace_timer, 1.1)
+        self.stats["failsafe_triggers"] += 1
+        recovered = 12 + self.failsafe_level * 5
+        self.player_hp = min(self.player_max_hp, self.player_hp + recovered)
+        blast_radius = 120 + self.failsafe_level * 18
+        blast_damage = 18 + self.failsafe_level * 8
+        hit_count = 0
+        for enemy in self.enemies:
+            if dist((self.player_x, self.player_y), (enemy["x"], enemy["y"])) <= blast_radius:
+                enemy["hp"] -= blast_damage
+                hit_count += 1
+        self.play_sound("crisis")
+        self.trigger_screen_shake(0.16, 4.6)
+        self.spawn_floating_text(self.player_x, self.player_y - 54, "Rollback Guard", BLUE)
+        if hit_count:
+            self.spawn_floating_text(
+                self.player_x,
+                self.player_y - 28,
+                f"stabilized x{hit_count}",
+                ACCENT,
+            )
+
     def spawn_fix_text(self, enemy: dict) -> None:
         labels = {
             "Bug": "bug fixed",
@@ -897,6 +1190,7 @@ class Game:
             "Alert": "alert silenced",
             "Scope Creep": "scope trimmed",
             "Bugling": "tiny bug fixed",
+            "Outage": "outage resolved",
         }
         self.spawn_floating_text(
             enemy["x"] - enemy["type"].radius,
@@ -912,13 +1206,19 @@ class Game:
             "Meeting": "meetings_dodged",
             "Alert": "alerts_silenced",
             "Scope Creep": "scope_trimmed",
+            "Outage": "outages_resolved",
         }
         stat_key = stat_map.get(enemy["type"].name)
         if stat_key is not None:
             self.stats[stat_key] += 1
+        if enemy["type"].name == "Outage":
+            self.unlock_achievement("first_outage")
 
     def maybe_drop_powerup(self, enemy: dict) -> None:
         """Drop short-term rescue tools without polluting level-up choices."""
+        if enemy["type"].name == "Outage":
+            self.spawn_powerup(choice(["heal", "bomb", "haste"]), enemy["x"], enemy["y"])
+            return
         drop_roll = random()
         drop_bonus = 0.04 if enemy["type"].name in {"Meeting", "Scope Creep"} else 0.0
         if drop_roll >= 0.12 + drop_bonus:
@@ -959,6 +1259,9 @@ class Game:
 
     def advance_enemy(self, enemy: dict, dt: float) -> None:
         enemy_type = enemy["type"]
+        if enemy_type.name == "Outage":
+            self.advance_outage(enemy, dt)
+            return
         if enemy_type.name == "Meeting":
             target_x = self.player_x + self.player_dx * self.player_speed * 0.55
             target_y = self.player_y + self.player_dy * self.player_speed * 0.55
@@ -988,6 +1291,59 @@ class Game:
         angle = atan2(self.player_y - enemy["y"], self.player_x - enemy["x"])
         enemy["x"] += cos(angle) * enemy_type.speed * dt
         enemy["y"] += sin(angle) * enemy_type.speed * dt
+
+    def advance_outage(self, enemy: dict, dt: float) -> None:
+        hp_ratio = enemy["hp"] / max(1.0, enemy.get("max_hp", enemy["hp"]))
+        if hp_ratio <= 0.5 and not enemy["rage"]:
+            enemy["rage"] = True
+            enemy["pulse_timer"] = min(enemy["pulse_timer"], 1.1)
+            enemy["summon_timer"] = min(enemy["summon_timer"], 2.3)
+            self.spawn_floating_text(enemy["x"] - 22, enemy["y"] - 48, "Outage escalates", RED)
+
+        distance_to_player = dist((self.player_x, self.player_y), (enemy["x"], enemy["y"]))
+        preferred_distance = 170
+        angle = atan2(self.player_y - enemy["y"], self.player_x - enemy["x"])
+        speed = enemy_type.speed * (1.18 if enemy["rage"] else 1.0)
+        move_direction = 1.0 if distance_to_player > preferred_distance else -0.72
+        enemy["x"] += cos(angle) * speed * move_direction * dt
+        enemy["y"] += sin(angle) * speed * move_direction * dt
+
+        enemy["pulse_timer"] -= dt
+        if enemy["pulse_timer"] <= 0:
+            self.emit_outage_wave(enemy)
+            enemy["pulse_timer"] = 1.65 if enemy["rage"] else 2.55
+
+        enemy["summon_timer"] -= dt
+        if enemy["summon_timer"] <= 0:
+            self.summon_outage_support(enemy)
+            enemy["summon_timer"] = 3.1 if enemy["rage"] else 5.0
+
+    def emit_outage_wave(self, enemy: dict) -> None:
+        self.trigger_screen_shake(0.1, 2.6)
+        self.spawn_floating_text(enemy["x"] - 18, enemy["y"] - 52, "Incident wave", OUTAGE_COLOR)
+        for index in range(6):
+            angle = index * (2 * pi / 6)
+            radius = 54.0
+            x = max(radius, min(WIDTH - radius, enemy["x"] + cos(angle) * 92))
+            y = max(radius, min(HEIGHT - radius, enemy["y"] + sin(angle) * 92))
+            self.hazards.append(
+                {
+                    "x": x,
+                    "y": y,
+                    "radius": radius,
+                    "warn": 0.85,
+                    "duration": 1.2,
+                    "damage": 12.0 if not enemy["rage"] else 16.0,
+                    "hit": False,
+                }
+            )
+
+    def summon_outage_support(self, enemy: dict) -> None:
+        alert = next(enemy_type for enemy_type in ENEMY_TYPES if enemy_type.name == "Alert")
+        bug = next(enemy_type for enemy_type in ENEMY_TYPES if enemy_type.name == "Bug")
+        self.spawn_floating_text(enemy["x"] - 26, enemy["y"] - 28, "Escalation", ACCENT)
+        self.add_enemy(alert, elite=False, near_player=True)
+        self.add_enemy(choice([alert, bug]), elite=False, near_player=True)
 
     def projectile_damage_multiplier(self) -> float:
         if self.projectile_count <= 1:
@@ -1164,6 +1520,14 @@ class Game:
                 weight += 1
             if upgrade.key == "pierce" and self.level >= 4:
                 weight += 1
+            if upgrade.key == "chain" and self.level >= 3:
+                weight += 2
+            if upgrade.key == "drone" and self.level >= 4:
+                weight += 2
+            if upgrade.key == "failsafe" and self.player_hp < self.player_max_hp * 0.55:
+                weight += 2
+            if upgrade.key == "overclock" and self.level >= 5:
+                weight += 2
             weighted.extend([upgrade] * weight)
 
         choices: list[Upgrade] = []
@@ -1180,6 +1544,139 @@ class Game:
                 choices.append(fallback)
 
         return choices
+
+    def current_run_evaluation(self) -> tuple[str, str, list[str]]:
+        tags: list[str] = []
+        if self.max_momentum >= 0.8:
+            tags.append("High Momentum")
+        if self.stats["deploys"] >= 3:
+            tags.append("Deploy Focus")
+        if self.stats["outages_resolved"] >= 1:
+            tags.append("Boss Priority")
+        if self.stats["failsafe_triggers"] >= 1:
+            tags.append("Low HP Survivor")
+        if self.drone_count >= 2:
+            tags.append("Support Build")
+        elif self.chain_count >= 2:
+            tags.append("Chain Build")
+        elif self.pulse_unlocked or self.overclock_level > 0:
+            tags.append("Wave Cleaner")
+
+        if self.stats["outages_resolved"] >= 2:
+            return (
+                "Outage Hunter",
+                "You treated production outages as the main objective and kept the run under control.",
+                tags[:2] or ["Boss Priority"],
+            )
+        if self.stats["deploys"] >= 4:
+            return (
+                "Deploy Specialist",
+                "You kept rotating into risky deploy windows and turned map pressure into growth.",
+                tags[:2] or ["Deploy Focus"],
+            )
+        if self.drone_count >= 2:
+            return (
+                "Pair Programming Lead",
+                "This run leaned on support patches and felt more like coordinated repair work.",
+                tags[:2] or ["Support Build"],
+            )
+        if self.chain_count >= 2 and (self.pierce > 0 or self.overclock_level > 0):
+            return (
+                "Code Review Machine",
+                "One patch kept turning into more fixes as the build spread through clustered problems.",
+                tags[:2] or ["Chain Build"],
+            )
+        if self.stats["failsafe_triggers"] >= 2 or (
+            self.stats["failsafe_triggers"] >= 1 and self.time_survived >= 240
+        ):
+            return (
+                "Last-Minute Hero",
+                "This run survived repeated emergencies and kept shipping patches after near collapses.",
+                tags[:2] or ["Low HP Survivor"],
+            )
+        if self.max_momentum >= 0.85 and self.stats["deploys"] >= 2:
+            return (
+                "Patch Sprinter",
+                "You kept the run moving, stayed in flow, and converted mobility into steady growth.",
+                tags[:2] or ["High Momentum"],
+            )
+        if (
+            self.stats["bugs_fixed"] + self.stats["alerts_silenced"] + self.stats["scope_trimmed"] >= 90
+            and (self.pulse_unlocked or self.overclock_level > 0)
+        ):
+            return (
+                "Incident Cleaner",
+                "The build focused on cleaning waves quickly instead of only escaping them.",
+                tags[:2] or ["Wave Cleaner"],
+            )
+        return (
+            "Steady Maintainer",
+            "You kept the system running without overcommitting to a single high-risk route.",
+            tags[:2] or ["Balanced Run"],
+        )
+
+    def unlock_achievement(self, key: str) -> None:
+        entry = self.progression["achievements"].get(key)
+        if entry is None or entry.get("unlocked"):
+            return
+        entry["unlocked"] = True
+        self.new_achievements.append(key)
+        self.spawn_floating_text(
+            self.player_x - 36,
+            self.player_y - 82,
+            ACHIEVEMENT_DEFS.get(key, key),
+            ACCENT,
+        )
+
+    def finalize_run_progression(self) -> None:
+        totals = self.progression["totals"]
+        totals["bugs_fixed"] += self.stats["bugs_fixed"]
+        totals["meetings_dodged"] += self.stats["meetings_dodged"]
+        totals["alerts_silenced"] += self.stats["alerts_silenced"]
+        totals["scope_trimmed"] += self.stats["scope_trimmed"]
+        totals["outages_resolved"] += self.stats["outages_resolved"]
+        totals["deploys"] += self.stats["deploys"]
+        totals["runs_played"] += 1
+        totals["best_time"] = max(float(totals["best_time"]), self.time_survived, self.best_time)
+
+        if self.selected_difficulty == "crunch" and self.time_survived >= 600:
+            self.unlock_achievement("crunch_survivor")
+        if self.stats["deploys"] >= 5:
+            self.unlock_achievement("deploy_addict")
+        if self.drone_count >= 2:
+            self.unlock_achievement("pair_flow")
+        if self.max_chain_hits >= 3:
+            self.unlock_achievement("review_cascade")
+        if totals["bugs_fixed"] >= 500:
+            self.unlock_achievement("bug_tracker")
+
+        save_progression(self.best_time, self.progression)
+
+    def achievement_progress_text(self, key: str) -> str:
+        totals = self.progression["totals"]
+        if key == "crunch_survivor":
+            if self.progression["achievements"][key].get("unlocked"):
+                return "Done"
+            if self.selected_difficulty == "crunch":
+                return f"{min(self.time_survived, 600):0.0f}/600s"
+            return "0/600s"
+        if key == "deploy_addict":
+            if self.progression["achievements"][key].get("unlocked"):
+                return "Done"
+            return f"{min(self.stats['deploys'], 5)}/5 in one run"
+        if key == "pair_flow":
+            if self.progression["achievements"][key].get("unlocked"):
+                return "Done"
+            return f"{min(self.drone_count, 2)}/2 pairs"
+        if key == "review_cascade":
+            if self.progression["achievements"][key].get("unlocked"):
+                return "Done"
+            return f"{min(self.max_chain_hits, 3)}/3 hits"
+        if key == "bug_tracker":
+            if self.progression["achievements"][key].get("unlocked"):
+                return "Done"
+            return f"{min(totals['bugs_fixed'], 500)}/500"
+        return "Done" if self.progression["achievements"][key].get("unlocked") else "Not yet"
 
     def draw(self) -> None:
         shake_x = 0
@@ -1210,6 +1707,7 @@ class Game:
             pygame.draw.circle(self.screen, XP_COLOR, (int(shard["x"]), int(shard["y"])), 6)
 
         self.draw_powerups()
+        self.draw_drones()
 
         for projectile in self.projectiles:
             pygame.draw.circle(
@@ -1263,6 +1761,28 @@ class Game:
                     (int(enemy["x"]), int(enemy["y"])),
                     5,
                 )
+            elif enemy["type"].name == "Outage":
+                pygame.draw.circle(
+                    self.screen,
+                    PANEL,
+                    (int(enemy["x"]), int(enemy["y"])),
+                    12,
+                )
+                pygame.draw.circle(
+                    self.screen,
+                    TEXT,
+                    (int(enemy["x"]), int(enemy["y"])),
+                    6,
+                    2,
+                )
+                if enemy.get("rage"):
+                    pygame.draw.circle(
+                        self.screen,
+                        RED,
+                        (int(enemy["x"]), int(enemy["y"])),
+                        int(enemy["type"].radius + 10),
+                        2,
+                    )
             elif enemy["type"].name == "Bugling":
                 pygame.draw.circle(
                     self.screen,
@@ -1294,6 +1814,8 @@ class Game:
 
         if self.state == "title":
             self.draw_title_overlay()
+        elif self.state == "achievements":
+            self.draw_achievements_overlay()
         elif self.state == "level_up":
             self.draw_level_up_overlay()
         elif self.state == "paused":
@@ -1398,6 +1920,18 @@ class Game:
                 points = [(x - 7, y - 10), (x + 3, y - 2), (x - 2, y), (x + 8, y + 10)]
                 pygame.draw.lines(self.screen, TEXT, False, points, 3)
 
+    def draw_drones(self) -> None:
+        if self.drone_count <= 0:
+            return
+        for index in range(self.drone_count):
+            angle = self.time_survived * 2.4 + index * (2 * pi / max(1, self.drone_count))
+            x = int(self.player_x + cos(angle) * 34)
+            y = int(self.player_y + sin(angle) * 34)
+            pygame.draw.circle(self.screen, BLUE, (x, y), 8)
+            pygame.draw.circle(self.screen, TEXT, (x, y), 8, 2)
+            pygame.draw.line(self.screen, TEXT, (x - 4, y), (x + 4, y), 2)
+            pygame.draw.line(self.screen, TEXT, (x, y - 4), (x, y + 4), 2)
+
     def draw_objective(self) -> None:
         if self.objective is None:
             return
@@ -1437,6 +1971,10 @@ class Game:
             self.blit(self.small_font, "Pager noise rising", RED, 380, 106)
         if self.crisis_banner_timer > 0:
             self.blit(self.font, self.crisis_name, RED, 500, 28)
+        outage = next((enemy for enemy in self.enemies if enemy["type"].name == "Outage"), None)
+        if outage is not None:
+            ratio = max(0.0, min(1.0, outage["hp"] / outage.get("max_hp", outage["hp"])))
+            self.draw_bar(500, 58, 260, 12, ratio, OUTAGE_COLOR, "Outage")
 
         hp_ratio = max(0.0, self.player_hp / self.player_max_hp)
         xp_ratio = max(0.0, min(1.0, self.xp / self.xp_to_level))
@@ -1473,8 +2011,18 @@ class Game:
                 960,
                 216,
             )
+        if self.drone_count > 0:
+            self.blit(self.small_font, f"Pairs {self.drone_count}", MUTED, 960, 240)
+        if self.chain_count > 0:
+            self.blit(self.small_font, f"Code Review {self.chain_count}", MUTED, 960, 264)
+        if self.failsafe_level > 0:
+            cooldown = "ready" if self.failsafe_cooldown <= 0 else f"{self.failsafe_cooldown:0.1f}s"
+            self.blit(self.small_font, f"Guard {cooldown}", MUTED, 960, 288)
+        if self.overclock_level > 0:
+            self.blit(self.small_font, f"Overclock {self.overclock_level}", MUTED, 960, 312)
         if self.objective is not None:
-            self.blit(self.small_font, "Optional: hold deploy window", GREEN, 500, 58)
+            objective_y = 82 if outage is not None else 58
+            self.blit(self.small_font, "Optional: hold deploy window", GREEN, 500, objective_y)
 
     def draw_bar(
         self,
@@ -1511,10 +2059,72 @@ class Game:
             "Red deadline zones punish standing still.",
             "Collect insight shards to level up.",
             "Pick upgrades with 1, 2, or 3.",
+            "Press A to view local achievements.",
             "Press Space to start the run.",
         ]
         for index, line in enumerate(lines):
             self.blit(self.font, f"• {line}", TEXT, 248, 368 + index * 28)
+
+    def draw_achievements_overlay(self) -> None:
+        self.draw_overlay_panel(120, 70, 1040, 580)
+        self.blit(self.large_font, "Achievements", TEXT, 170, 118)
+
+        achievements = self.progression["achievements"]
+        totals = self.progression["totals"]
+        unlocked_count = sum(1 for value in achievements.values() if value.get("unlocked"))
+        completion_ratio = unlocked_count / max(1, len(ACHIEVEMENT_DEFS))
+        self.blit(
+            self.font,
+            f"Unlocked {unlocked_count}/{len(ACHIEVEMENT_DEFS)}",
+            ACCENT,
+            170,
+            178,
+        )
+        self.blit(
+            self.small_font,
+            f"Runs {totals['runs_played']}  |  Best {float(totals['best_time']):05.1f}s  |  Bugs fixed {totals['bugs_fixed']}",
+            MUTED,
+            170,
+            214,
+        )
+        self.draw_bar(170, 236, 240, 10, completion_ratio, GREEN, "Completion")
+
+        group_positions = [(160, 280), (610, 280), (160, 470), (610, 470)]
+        for index, (group_name, rows) in enumerate(ACHIEVEMENT_GROUPS):
+            group_x, group_y = group_positions[index]
+            group_rect = pygame.Rect(group_x, group_y, 410, 150)
+            pygame.draw.rect(self.screen, PANEL, group_rect, border_radius=16)
+            pygame.draw.rect(self.screen, GRID, group_rect, 2, border_radius=16)
+            self.blit(self.font, group_name, ACCENT, group_x + 14, group_y + 12)
+
+            unlocked_in_group = sum(1 for key, _ in rows if achievements[key].get("unlocked"))
+            self.blit(
+                self.small_font,
+                f"{unlocked_in_group}/{len(rows)} unlocked",
+                MUTED,
+                group_x + 270,
+                group_y + 16,
+            )
+
+            for row_index, (key, description) in enumerate(rows):
+                unlocked = achievements[key].get("unlocked", False)
+                row_y = group_y + 44 + row_index * 32
+                marker_color = GREEN if unlocked else GRID
+                pygame.draw.circle(self.screen, marker_color, (group_x + 16, row_y + 8), 6)
+                self.blit(
+                    self.small_font,
+                    ACHIEVEMENT_DEFS[key],
+                    TEXT if unlocked else MUTED,
+                    group_x + 30,
+                    row_y - 2,
+                )
+                progress_text = self.achievement_progress_text(key)
+                self.blit(self.small_font, progress_text, marker_color if unlocked else MUTED, group_x + 278, row_y - 2)
+                wrapped = wrap_text(self.small_font, description, 320)
+                if wrapped:
+                    self.blit(self.small_font, wrapped[0], MUTED, group_x + 30, row_y + 14)
+
+        self.blit(self.small_font, "Press A or Backspace to return.", ACCENT, 170, 610)
 
     def draw_paused_overlay(self) -> None:
         self.draw_overlay_panel(260, 180, 760, 280)
@@ -1546,15 +2156,31 @@ class Game:
 
     def draw_game_over_overlay(self) -> None:
         self.draw_overlay_panel(180, 120, 920, 470)
+        title, description, tags = self.current_run_evaluation()
         self.blit(self.large_font, "Deploy Failed", TEXT, 300, 230)
         self.blit(
             self.font,
             f"Kept production alive for {self.time_survived:05.1f}s",
             TEXT,
             300,
-            310,
+            292,
         )
-        self.blit(self.font, f"Best run {self.best_time:05.1f} seconds", MUTED, 300, 346)
+        self.blit(self.font, f"Best run {self.best_time:05.1f} seconds", MUTED, 300, 326)
+        self.blit(self.font, f"Run evaluation: {title}", ACCENT, 300, 362)
+        wrapped = wrap_text(self.small_font, description, 720)
+        for index, line in enumerate(wrapped[:2]):
+            self.blit(self.small_font, line, MUTED, 300, 396 + index * 22)
+        if tags:
+            self.blit(self.small_font, "Tags: " + "  |  ".join(tags), GREEN, 300, 444)
+        if self.new_achievements:
+            unlocked_names = [ACHIEVEMENT_DEFS.get(key, key) for key in self.new_achievements[:2]]
+            self.blit(
+                self.small_font,
+                "Unlocked: " + "  |  ".join(unlocked_names),
+                ACCENT,
+                300,
+                466,
+            )
         stats = [
             f"Difficulty: {self.current_difficulty().label}",
             f"Insight: {int(self.stats['insight'])}",
@@ -1562,15 +2188,17 @@ class Game:
             f"Meetings dodged: {self.stats['meetings_dodged']}",
             f"Alerts silenced: {self.stats['alerts_silenced']}",
             f"Scope trimmed: {self.stats['scope_trimmed']}",
+            f"Outages resolved: {self.stats['outages_resolved']}",
             f"Deploys: {self.stats['deploys']}",
             f"Powerups used: {self.stats['powerups']}",
         ]
         for index, line in enumerate(stats):
-            column_x = 300 if index < 4 else 640
-            row_y = 388 + (index % 4) * 32
+            column_x = 300 if index < 5 else 640
+            row_y = 492 + (index % 5) * 22
             self.blit(self.small_font, line, TEXT, column_x, row_y)
-        self.blit(self.small_font, "1 Casual  2 Normal  3 Crunch", ACCENT, 300, 522)
-        self.blit(self.font, "Press Space to restart.", TEXT, 300, 555)
+        self.blit(self.small_font, "Press A to view achievements.", GREEN, 640, 602 - 78)
+        self.blit(self.small_font, "1 Casual  2 Normal  3 Crunch", ACCENT, 300, 532 + 70)
+        self.blit(self.font, "Press Space to restart.", TEXT, 300, 567 + 40 - 10)
 
     def draw_overlay_panel(self, x: int, y: int, width: int, height: int) -> None:
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)

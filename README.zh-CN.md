@@ -79,6 +79,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - `Space`：开始 / 继续
 - `1`、`2`、`3`：升级时选择选项
 - 在标题页 / 结算页按 `1`、`2`、`3`：选择难度
+- 在标题页 / 结算页按 `A`：打开成就页
 - `P`：暂停 / 继续
 - `Esc`：退出
 
@@ -90,6 +91,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - 拾取 Coffee Break、Refactor Bomb 和 CI Boost
 - 抢占可选的 deploy window，获取爆发奖励
 - 保持 momentum，提高 insight 收益和 patch 节奏
+- `Outage` mini-boss 出现时要优先处理，否则场面会快速失控
 - 升级并选择强化
 - 尽可能活得更久
 - 在不同压力阶段里调整自己的 build
@@ -135,8 +137,12 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - `Rollback Thread`：让 patch 可以穿透更多问题。
 - `Pager Burst`：解锁并强化周期性故障清扫伤害。
 - `Quiet Hour`：解锁并强化缓慢自动回血。
+- `Code Review`：patch 命中后会继续连锁到附近问题。
+- `Pair Programmer`：增加一个环绕主角的僚机，自动补发 patch。
+- `Rollback Guard`：低血量时触发一次紧急稳定脉冲。
+- `Overclocked Build`：在 Overdrive 状态下，patch 命中会产生小范围爆炸。
 
-短期救场、临时爆发类效果放到道具里，不再作为主要升级方向。
+短期救场、临时爆发类效果仍然主要放在道具里，但升级池现在也开始包含更明显的机制型 build，让不同局之间的手感差异更大。
 
 ## 道具
 
@@ -173,14 +179,36 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 
 每局结束后，游戏会展示一份简短的生产事故报告：
 
+- 本局评价称号
+- 一句 build 风格总结
+- 若干高光标签
+- 本局新解锁的本地成就
 - 本局获得的 insight
 - 修复了多少 bug
 - 躲开了多少 meeting
 - 压掉了多少 alert
 - 修掉了多少 scope creep
+- 解决了多少 outage
 - 完成了多少 deploy window
 - 用掉了多少道具
 - 本局难度
+
+## 本地成就
+
+游戏现在已经接入第一批本地成就，不需要联网、不需要账号：
+
+- `First Patch Rush`：第一次进入 `Overdrive`
+- `First Deploy`：第一次完成 deploy
+- `First Outage`：第一次击败 `Production Outage`
+- `Crunch Survivor`：在 `Crunch` 难度存活 10 分钟
+- `Deploy Addict`：单局完成 5 次 deploy
+- `Pair Flow`：拥有 2 个 `Pair Programmer`
+- `Review Cascade`：连锁 patch 命中 3 个目标
+- `Bug Tracker`：跨多局累计修复 500 个 bug
+
+它们会和最高存活时间一起保存在本地存档里，用来提供离线状态下的长期目标。
+
+成就页现在也按里程碑、挑战、build、长期精通四类分组展示，并对较长线的目标显示轻量进度文本。
 
 ## 反馈打磨
 
@@ -189,6 +217,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - 内置程序生成音效：patch、升级、拾取、受伤、危机事件、暂停、失败
 - 轻微屏幕震动：命中、炸弹、脉冲、危机事件时会更有冲击感
 - 暂停界面：长一点的试玩过程更容易中断和继续
+- `Outage` 出现时会显示独立血条和遭遇提示
 
 ## 压力阶段
 
@@ -208,6 +237,15 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - `Standup Swarm`：大量 Bug 加一个会议堵路怪
 - `Pager Storm`：多只高速 Alert
 - `Scope Review`：需求膨胀压力和分裂怪
+
+## Outage Mini-Boss
+
+进入中期后，游戏会偶尔刷出一个 `Production Outage` mini-boss：
+
+- 它不会简单地贴脸追击，而是保持中距离压迫
+- 它会释放一圈危险区，切碎安全走位空间
+- 它会周期性召唤支援怪，逼迫你改变优先击杀目标
+- 屏幕上会出现单独的 boss 血条，让这一段更像一次正式遭遇战
 
 后期还会出现带橙色外圈的精英怪。它们更硬，用来防止高等级 build 进入挂机状态。
 

@@ -99,6 +99,10 @@ Available upgrades:
 - `Rollback Thread`: more patch pierce
 - `Pager Burst`: periodic incident sweep damage
 - `Quiet Hour`: slow passive recovery
+- `Code Review`: patches chain into nearby issues
+- `Pair Programmer`: an orbiting helper fires extra patches
+- `Rollback Guard`: low HP triggers a defensive stabilization pulse
+- `Overclocked Build`: Overdrive hits create a small burst around the target
 
 ### Powerups
 
@@ -125,6 +129,10 @@ This keeps the project lightweight while leaving room for future skins or sprite
 
 When a run fails, the game shows a compact report with:
 
+- a run evaluation title
+- a short summary sentence
+- one or two build tags
+- newly unlocked local achievements, when applicable
 - survival time
 - selected difficulty
 - total insight collected
@@ -132,8 +140,28 @@ When a run fails, the game shows a compact report with:
 - meetings dodged
 - alerts silenced
 - scope trimmed
+- outages resolved
 - deploy windows completed
 - powerups used
+
+### Local Achievements
+
+The current build includes a first batch of local achievements stored on disk.
+
+- `First Patch Rush`
+- `First Deploy`
+- `First Outage`
+- `Crunch Survivor`
+- `Deploy Addict`
+- `Pair Flow`
+- `Review Cascade`
+- `Bug Tracker`
+
+These are intentionally offline-first. They give repeat runs longer-term goals without requiring accounts or an online backend.
+
+The achievements panel can be opened from the title or game-over screen with `A`, then closed with `A` or `Backspace`.
+
+The panel groups achievements into milestone, challenge, build, and mastery sections so the list reads more like a progression page than a flat checklist.
 
 ### Pause And Moment-To-Moment Feedback
 
@@ -163,6 +191,15 @@ After roughly 55 seconds, the director can trigger crisis events near the player
 - `Standup Swarm`: many bugs and a blocker
 - `Pager Storm`: fast alert enemies arrive together
 - `Scope Review`: scope creep enemies pressure space and split on death
+
+### Outage Mini-Boss
+
+From the mid game onward, the run can spawn a `Production Outage` mini-boss.
+
+- It prefers medium range instead of behaving like a normal chaser.
+- It emits hazard waves, which reduces safe floor space.
+- It summons support enemies, so ignoring it causes the screen to degrade.
+- It has a dedicated HP bar and should become the primary target for most builds.
 
 Elite enemies can appear later in a run. They are shown with an orange outline and are intentionally harder to clear.
 

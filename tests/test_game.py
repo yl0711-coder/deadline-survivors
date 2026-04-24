@@ -14,6 +14,7 @@ SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
 from deadline_survivors.game import ENEMY_TYPES, Game
+from deadline_survivors.storage import load_progression
 
 
 class GameTest(unittest.TestCase):
@@ -51,15 +52,25 @@ class GameTest(unittest.TestCase):
             "pierce",
             "pulse",
             "recovery",
+            "chain",
+            "drone",
+            "failsafe",
+            "overclock",
         }:
             self.game.choose_upgrade(key)
         self.assertGreaterEqual(self.game.projectile_count, 2)
         self.assertGreaterEqual(self.game.pickup_radius, 100.0)
         self.assertTrue(self.game.pulse_unlocked)
+        self.assertGreaterEqual(self.game.chain_count, 1)
+        self.assertGreaterEqual(self.game.drone_count, 1)
+        self.assertGreaterEqual(self.game.failsafe_level, 1)
+        self.assertGreaterEqual(self.game.overclock_level, 1)
 
     def test_draw_works_in_all_main_states(self) -> None:
-        for state in ("title", "playing", "level_up", "paused", "game_over"):
+        for state in ("title", "playing", "level_up", "paused", "game_over", "achievements"):
             self.game.state = state
+            if state == "game_over":
+                self.game.new_achievements = ["first_deploy"]
             if state == "level_up":
                 self.game.level_choices = self.game.level_choices or []
                 if not self.game.level_choices:
@@ -143,6 +154,29 @@ class GameTest(unittest.TestCase):
         self.assertGreaterEqual(len(self.game.enemies), 3)
         self.assertGreater(self.game.crisis_banner_timer, 0)
         self.assertIn(self.game.crisis_name, {"Standup Swarm", "Pager Storm", "Scope Review"})
+
+    def test_boss_director_spawns_outage(self) -> None:
+        self.game.start_run()
+        self.game.time_survived = 80
+        self.game.level = 9
+        self.game.boss_timer = 0
+
+        self.game.update_boss_director(1 / 60)
+
+        self.assertTrue(any(enemy["type"].name == "Outage" for enemy in self.game.enemies))
+        self.assertEqual("Production Outage", self.game.crisis_name)
+
+    def test_outage_wave_and_support_create_pressure(self) -> None:
+        self.game.start_run()
+        self.game.spawn_outage_boss()
+        outage = next(enemy for enemy in self.game.enemies if enemy["type"].name == "Outage")
+        enemy_count_before = len(self.game.enemies)
+
+        self.game.emit_outage_wave(outage)
+        self.game.summon_outage_support(outage)
+
+        self.assertGreater(len(self.game.hazards), 0)
+        self.assertGreater(len(self.game.enemies), enemy_count_before)
 
     def test_projectile_damage_has_multicast_diminishing_returns(self) -> None:
         self.game.start_run()
@@ -265,6 +299,107 @@ class GameTest(unittest.TestCase):
         self.assertEqual([], self.game.powerups)
         self.assertGreater(self.game.haste_timer, 0)
 
+    def test_chain_upgrade_spawns_follow_up_projectile(self) -> None:
+        self.game.start_run()
+        self.game.choose_upgrade("chain")
+        self.game.enemies = [
+            {
+                "type": next(enemy for enemy in ENEMY_TYPES if enemy.name == "Bug"),
+                "x": self.game.player_x + 60,
+                "y": self.game.player_y,
+                "hp": 50,
+                "damage": 6.0,
+                "dash_timer": 0.0,
+                "dash_cooldown": 1.0,
+                "dash_vx": 0.0,
+                "dash_vy": 0.0,
+                "split_depth": 0,
+                "elite": False,
+            },
+            {
+                "type": next(enemy for enemy in ENEMY_TYPES if enemy.name == "Bug"),
+                "x": self.game.player_x + 110,
+                "y": self.game.player_y,
+                "hp": 50,
+                "damage": 6.0,
+                "dash_timer": 0.0,
+                "dash_cooldown": 1.0,
+                "dash_vx": 0.0,
+                "dash_vy": 0.0,
+                "split_depth": 0,
+                "elite": False,
+            },
+        ]
+        self.game.projectiles = [
+            {
+                "x": self.game.player_x + 60,
+                "y": self.game.player_y,
+                "vx": 0.0,
+                "vy": 0.0,
+                "damage": 10.0,
+                "radius": 8,
+                "color": (255, 255, 255),
+                "pierce": 0,
+                "source": "player",
+                "chain": 1,
+                "chain_range": 120.0,
+            }
+        ]
+
+        self.game.update_projectiles(1 / 60)
+
+        self.assertTrue(any(projectile.get("source") == "chain" for projectile in self.game.projectiles))
+
+    def test_drone_upgrade_fires_helper_projectiles(self) -> None:
+        self.game.start_run()
+        self.game.choose_upgrade("drone")
+        self.game.drone_timer = 0.0
+        self.game.enemies = [
+            {
+                "type": next(enemy for enemy in ENEMY_TYPES if enemy.name == "Bug"),
+                "x": self.game.player_x + 100,
+                "y": self.game.player_y,
+                "hp": 20,
+                "damage": 6.0,
+                "dash_timer": 0.0,
+                "dash_cooldown": 1.0,
+                "dash_vx": 0.0,
+                "dash_vy": 0.0,
+                "split_depth": 0,
+                "elite": False,
+            }
+        ]
+
+        self.game.update_drone(0.1)
+
+        self.assertTrue(any(projectile.get("source") == "drone" for projectile in self.game.projectiles))
+
+    def test_failsafe_upgrade_triggers_low_health_guard(self) -> None:
+        self.game.start_run()
+        self.game.choose_upgrade("failsafe")
+        self.game.player_hp = 24
+        self.game.enemies = [
+            {
+                "type": next(enemy for enemy in ENEMY_TYPES if enemy.name == "Bug"),
+                "x": self.game.player_x + 20,
+                "y": self.game.player_y,
+                "hp": 20,
+                "damage": 6.0,
+                "dash_timer": 0.0,
+                "dash_cooldown": 1.0,
+                "dash_vx": 0.0,
+                "dash_vy": 0.0,
+                "split_depth": 0,
+                "elite": False,
+            }
+        ]
+
+        self.game.trigger_failsafe()
+
+        self.assertGreater(self.game.player_hp, 24)
+        self.assertGreater(self.game.grace_timer, 0)
+        self.assertGreater(self.game.failsafe_cooldown, 0)
+
     def test_play_sound_is_safe_when_audio_is_unavailable(self) -> None:
         self.game.sound_enabled = False
         self.game.sounds = {}
@@ -306,6 +441,64 @@ class GameTest(unittest.TestCase):
         self.game.update_enemies(1 / 60)
 
         self.assertEqual(1, self.game.stats["bugs_fixed"])
+
+    def test_run_evaluation_prefers_outage_hunter(self) -> None:
+        self.game.start_run()
+        self.game.stats["outages_resolved"] = 2
+        self.game.max_momentum = 0.9
+
+        title, description, tags = self.game.current_run_evaluation()
+
+        self.assertEqual("Outage Hunter", title)
+        self.assertIn("production outages", description)
+        self.assertIn("Boss Priority", tags)
+
+    def test_run_evaluation_recognizes_pair_programming_build(self) -> None:
+        self.game.start_run()
+        self.game.drone_count = 2
+        self.game.stats["bugs_fixed"] = 40
+
+        title, _, tags = self.game.current_run_evaluation()
+
+        self.assertEqual("Pair Programming Lead", title)
+        self.assertIn("Support Build", tags)
+
+    def test_unlock_achievement_marks_progression_once(self) -> None:
+        self.game.start_run()
+
+        self.game.unlock_achievement("first_deploy")
+        self.game.unlock_achievement("first_deploy")
+
+        self.assertTrue(self.game.progression["achievements"]["first_deploy"]["unlocked"])
+        self.assertEqual(["first_deploy"], self.game.new_achievements)
+
+    def test_finalize_run_progression_persists_totals_and_achievements(self) -> None:
+        self.game.start_run()
+        self.game.selected_difficulty = "crunch"
+        self.game.time_survived = 601
+        self.game.stats["bugs_fixed"] = 500
+        self.game.stats["deploys"] = 5
+        self.game.stats["outages_resolved"] = 1
+        self.game.drone_count = 2
+        self.game.max_chain_hits = 3
+
+        self.game.finalize_run_progression()
+        progression = load_progression()
+
+        self.assertEqual(500, progression["totals"]["bugs_fixed"])
+        self.assertEqual(5, progression["totals"]["deploys"])
+        self.assertEqual(1, progression["totals"]["outages_resolved"])
+        self.assertTrue(progression["achievements"]["crunch_survivor"]["unlocked"])
+        self.assertTrue(progression["achievements"]["deploy_addict"]["unlocked"])
+        self.assertTrue(progression["achievements"]["pair_flow"]["unlocked"])
+        self.assertTrue(progression["achievements"]["review_cascade"]["unlocked"])
+        self.assertTrue(progression["achievements"]["bug_tracker"]["unlocked"])
+
+    def test_achievements_overlay_can_render_unlocked_and_locked_items(self) -> None:
+        self.game.progression["achievements"]["first_deploy"]["unlocked"] = True
+        self.game.state = "achievements"
+
+        self.game.draw()
 
 
 if __name__ == "__main__":

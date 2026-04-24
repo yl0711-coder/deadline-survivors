@@ -75,6 +75,7 @@ This repository includes a GitHub Actions workflow that builds artifacts on:
 - `Space`: start / continue
 - `1`, `2`, `3`: choose upgrades during level-up
 - `1`, `2`, `3` on title / game over: choose difficulty
+- `A`: open achievements on title / game over
 - `P`: pause / resume
 - `Esc`: quit
 
@@ -86,6 +87,7 @@ This repository includes a GitHub Actions workflow that builds artifacts on:
 - grab Coffee Breaks, Refactor Bombs, and CI Boosts
 - capture optional deploy windows for burst rewards
 - keep momentum high for better insight and faster patching
+- prioritize `Outage` mini-bosses before they flood the screen with extra pressure
 - level up and choose upgrades
 - survive as long as possible
 - adapt to changing pressure phases during the run
@@ -131,8 +133,12 @@ The curve keeps early progress readable, then slows down frequent upgrade interr
 - `Rollback Thread`: lets patches pierce one extra issue.
 - `Pager Burst`: unlocks and improves periodic incident sweep damage.
 - `Quiet Hour`: unlocks and improves slow automatic recovery.
+- `Code Review`: chained patches bounce into nearby issues after a hit.
+- `Pair Programmer`: adds an orbiting helper that fires extra patches.
+- `Rollback Guard`: low HP triggers an emergency stabilizing pulse.
+- `Overclocked Build`: Overdrive hits create small burst damage.
 
-Short-term rescue effects are handled by powerups instead of level-up choices.
+Short-term rescue effects are still handled by powerups, but the upgrade pool now also includes more build-defining mechanics so runs diverge more clearly.
 
 ## Powerups
 
@@ -169,14 +175,36 @@ The style is intentionally simple because the project has no external art assets
 
 When a run ends, the game now shows a small production report:
 
+- a run evaluation title
+- a short build-style summary
+- highlighted run tags
+- any newly unlocked local achievements for that run
 - total insight collected
 - bugs fixed
 - meetings dodged
 - alerts silenced
 - scope trimmed
+- outages resolved
 - deploy windows completed
 - powerups used
 - run difficulty
+
+## Local Achievements
+
+The game now tracks a first batch of local achievements without any online account:
+
+- `First Patch Rush`: reach `Overdrive` for the first time
+- `First Deploy`: complete a deploy window for the first time
+- `First Outage`: defeat a `Production Outage`
+- `Crunch Survivor`: survive 10 minutes on `Crunch`
+- `Deploy Addict`: complete 5 deploys in one run
+- `Pair Flow`: reach 2 `Pair Programmer` helpers
+- `Review Cascade`: chain through 3 targets
+- `Bug Tracker`: fix 500 bugs across runs
+
+These are stored locally together with best-time data and are intended to add long-term goals before online systems exist.
+
+The achievements panel now groups them into milestone, challenge, build, and mastery sections, and shows lightweight progress text for the longer goals.
 
 ## Feedback Polish
 
@@ -185,6 +213,7 @@ The game now includes lightweight built-in feedback without external assets:
 - procedural sound effects for patching, pickups, damage, level-ups, crisis events, pause, and failure
 - light screen shake on hits, bombs, pulse bursts, and crisis spikes
 - a pause overlay so longer runs are easier to manage
+- a dedicated `Outage` HP bar and encounter banner for mini-boss moments
 
 ## Pressure Phases
 
@@ -204,6 +233,15 @@ After the gentler opening phase, the game periodically triggers crisis events ne
 - `Standup Swarm`: a dense group of bugs and a meeting blocker
 - `Pager Storm`: several fast alert enemies
 - `Scope Review`: scope creep pressure with split enemies
+
+## Outage Mini-Boss
+
+After the run settles into the mid game, a `Production Outage` mini-boss can appear:
+
+- it keeps medium distance instead of simply rushing the player
+- it emits hazard waves that cut safe floor space into smaller pockets
+- it periodically summons support enemies, forcing a target-priority decision
+- it has a dedicated boss HP bar so the run gains a clear combat objective
 
 Later runs can also spawn elite enemies with an orange outline. They are tougher and prevent high-level builds from becoming idle.
 
