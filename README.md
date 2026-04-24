@@ -74,6 +74,8 @@ This repository includes a GitHub Actions workflow that builds artifacts on:
 - `WASD` or arrow keys: move
 - `Space`: start / continue
 - `1`, `2`, `3`: choose upgrades during level-up
+- `1`, `2`, `3` on title / game over: choose difficulty
+- `P`: pause / resume
 - `Esc`: quit
 
 ## Gameplay Loop
@@ -142,6 +144,16 @@ Enemies can drop temporary powerups:
 
 This keeps level-up choices focused on long-term build direction while powerups create quick, exciting recovery moments.
 
+## Difficulty Modes
+
+The title screen and retry screen now support three difficulty presets:
+
+- `Casual`: softer pressure and more forgiving enemy stats
+- `Normal`: the default intended balance
+- `Crunch`: faster waves and harsher production pain
+
+Difficulty affects enemy durability, enemy damage, spawn pace, and insight gain.
+
 ## Player Character
 
 The player is drawn as a small developer character instead of a plain dot:
@@ -152,6 +164,27 @@ The player is drawn as a small developer character instead of a plain dot:
 - slight movement lean so direction changes feel more alive
 
 The style is intentionally simple because the project has no external art assets.
+
+## End-Of-Run Stats
+
+When a run ends, the game now shows a small production report:
+
+- total insight collected
+- bugs fixed
+- meetings dodged
+- alerts silenced
+- scope trimmed
+- deploy windows completed
+- powerups used
+- run difficulty
+
+## Feedback Polish
+
+The game now includes lightweight built-in feedback without external assets:
+
+- procedural sound effects for patching, pickups, damage, level-ups, crisis events, pause, and failure
+- light screen shake on hits, bombs, pulse bursts, and crisis spikes
+- a pause overlay so longer runs are easier to manage
 
 ## Pressure Phases
 

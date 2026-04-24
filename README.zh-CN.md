@@ -78,6 +78,8 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - `WASD` 或方向键：移动
 - `Space`：开始 / 继续
 - `1`、`2`、`3`：升级时选择选项
+- 在标题页 / 结算页按 `1`、`2`、`3`：选择难度
+- `P`：暂停 / 继续
 - `Esc`：退出
 
 ## 核心玩法
@@ -146,6 +148,16 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 
 这样升级负责长期成长，道具负责即时爽感和救命时刻。
 
+## 难度模式
+
+标题页和结算页现在支持三种难度：
+
+- `Casual`：压力更轻，敌人更温和
+- `Normal`：默认平衡
+- `Crunch`：刷怪更快，线上压力更大
+
+难度会影响敌人血量、敌人伤害、刷怪节奏和 insight 收益。
+
 ## 角色造型
 
 玩家角色现在不是一个普通小圆点，而是一个简单的开发者小人：
@@ -156,6 +168,27 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - 移动时有轻微倾斜，让方向变化更有感觉
 
 目前角色样式刻意保持简单，不依赖外部图片素材，方便后续继续迭代。
+
+## 结算统计
+
+每局结束后，游戏会展示一份简短的生产事故报告：
+
+- 本局获得的 insight
+- 修复了多少 bug
+- 躲开了多少 meeting
+- 压掉了多少 alert
+- 修掉了多少 scope creep
+- 完成了多少 deploy window
+- 用掉了多少道具
+- 本局难度
+
+## 反馈打磨
+
+这一版还加入了不依赖外部素材的轻量反馈：
+
+- 内置程序生成音效：patch、升级、拾取、受伤、危机事件、暂停、失败
+- 轻微屏幕震动：命中、炸弹、脉冲、危机事件时会更有冲击感
+- 暂停界面：长一点的试玩过程更容易中断和继续
 
 ## 压力阶段
 

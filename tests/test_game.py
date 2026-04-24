@@ -58,7 +58,7 @@ class GameTest(unittest.TestCase):
         self.assertTrue(self.game.pulse_unlocked)
 
     def test_draw_works_in_all_main_states(self) -> None:
-        for state in ("title", "playing", "level_up", "game_over"):
+        for state in ("title", "playing", "level_up", "paused", "game_over"):
             self.game.state = state
             if state == "level_up":
                 self.game.level_choices = self.game.level_choices or []
@@ -264,6 +264,48 @@ class GameTest(unittest.TestCase):
 
         self.assertEqual([], self.game.powerups)
         self.assertGreater(self.game.haste_timer, 0)
+
+    def test_play_sound_is_safe_when_audio_is_unavailable(self) -> None:
+        self.game.sound_enabled = False
+        self.game.sounds = {}
+        self.game.play_sound("patch")
+
+    def test_difficulty_affects_spawned_enemy_stats(self) -> None:
+        self.game.selected_difficulty = "casual"
+        self.game.start_run()
+        bug_type = next(enemy for enemy in ENEMY_TYPES if enemy.name == "Bug")
+        self.game.add_enemy(bug_type, elite=False)
+        casual_enemy = self.game.enemies[-1]
+
+        self.game.selected_difficulty = "crunch"
+        self.game.start_run()
+        self.game.add_enemy(bug_type, elite=False)
+        crunch_enemy = self.game.enemies[-1]
+
+        self.assertLess(casual_enemy["hp"], crunch_enemy["hp"])
+        self.assertLess(casual_enemy["damage"], crunch_enemy["damage"])
+
+    def test_enemy_resolution_updates_stats(self) -> None:
+        self.game.start_run()
+        self.game.enemies = [
+            {
+                "type": next(enemy for enemy in ENEMY_TYPES if enemy.name == "Bug"),
+                "x": self.game.player_x + 120,
+                "y": self.game.player_y,
+                "hp": 0,
+                "damage": 6.0,
+                "dash_timer": 0.0,
+                "dash_cooldown": 1.0,
+                "dash_vx": 0.0,
+                "dash_vy": 0.0,
+                "split_depth": 0,
+                "elite": False,
+            }
+        ]
+
+        self.game.update_enemies(1 / 60)
+
+        self.assertEqual(1, self.game.stats["bugs_fixed"])
 
 
 if __name__ == "__main__":

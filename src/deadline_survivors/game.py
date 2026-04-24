@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from array import array
 from dataclasses import dataclass
 from math import atan2, cos, dist, hypot, pi, sin
 from random import choice, random
@@ -59,6 +60,17 @@ class Phase:
     pressure: float
 
 
+@dataclass(frozen=True)
+class Difficulty:
+    key: str
+    label: str
+    description: str
+    enemy_hp_mult: float
+    enemy_damage_mult: float
+    spawn_interval_mult: float
+    insight_mult: float
+
+
 # Core enemies stay deliberately simple. Difficulty comes from combinations,
 # phases, crisis events, and map pressure rather than many complex AI classes.
 ENEMY_TYPES = [
@@ -89,9 +101,24 @@ PHASES = [
     Phase("Deadline Crunch", 9999.0, 0.66, 0.72),
 ]
 
+DIFFICULTIES = [
+    Difficulty("casual", "Casual", "Softer pressure, more breathing room.", 0.84, 0.82, 1.2, 1.12),
+    Difficulty("normal", "Normal", "Default pacing for most runs.", 1.0, 1.0, 1.0, 1.0),
+    Difficulty(
+        "crunch",
+        "Crunch",
+        "Faster waves and harsher production pain.",
+        1.18,
+        1.16,
+        0.84,
+        0.92,
+    ),
+]
+
 
 class Game:
     def __init__(self) -> None:
+        pygame.mixer.pre_init(44100, -16, 1, 512)
         pygame.init()
         pygame.display.set_caption(TITLE)
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -100,6 +127,13 @@ class Game:
         self.small_font = pygame.font.SysFont("consolas", 18)
         self.large_font = pygame.font.SysFont("consolas", 52, bold=True)
         self.best_time = load_best_time()
+        self.selected_difficulty = "normal"
+        self.sound_enabled = False
+        self.sounds: dict[str, pygame.mixer.Sound] = {}
+        self.fire_sound_timer = 0.0
+        self.shake_timer = 0.0
+        self.shake_strength = 0.0
+        self.init_audio()
         self.reset()
 
     def reset(self) -> None:
@@ -145,6 +179,18 @@ class Game:
         self.haste_timer = 0.0
         self.momentum = 0.0
         self.momentum_tier = "Idle"
+        self.fire_sound_timer = 0.0
+        self.shake_timer = 0.0
+        self.shake_strength = 0.0
+        self.stats = {
+            "insight": 0.0,
+            "bugs_fixed": 0,
+            "meetings_dodged": 0,
+            "alerts_silenced": 0,
+            "scope_trimmed": 0,
+            "deploys": 0,
+            "powerups": 0,
+        }
         self.hit_flash = 0.0
         self.level_flash = 0.0
         self.kill_flash = 0.0
@@ -159,6 +205,75 @@ class Game:
     def start_run(self) -> None:
         self.reset()
         self.state = "playing"
+
+    def current_difficulty(self) -> Difficulty:
+        return next(
+            difficulty for difficulty in DIFFICULTIES if difficulty.key == self.selected_difficulty
+        )
+
+    def init_audio(self) -> None:
+        """Create small procedural sounds so the game has feedback without assets."""
+        try:
+            if not pygame.mixer.get_init():
+                pygame.mixer.init()
+        except pygame.error:
+            self.sound_enabled = False
+            self.sounds = {}
+            return
+
+        self.sound_enabled = True
+        self.sounds = {
+            "patch": self.build_tone(760, 45, 0.18, 0.35),
+            "level": self.build_chord((520, 660, 820), 160, 0.22),
+            "pickup": self.build_tone(940, 70, 0.2, 0.22),
+            "hit": self.build_tone(180, 90, 0.24, 0.18),
+            "deploy": self.build_chord((420, 560, 740), 140, 0.18),
+            "crisis": self.build_tone(130, 220, 0.22, 0.05),
+            "fail": self.build_chord((280, 210, 160), 260, 0.22),
+            "pause": self.build_tone(540, 90, 0.18, 0.18),
+        }
+
+    def build_tone(
+        self,
+        frequency: float,
+        duration_ms: int,
+        volume: float,
+        decay: float,
+    ) -> pygame.mixer.Sound:
+        sample_rate = 44100
+        sample_count = int(sample_rate * (duration_ms / 1000))
+        samples = array("h")
+        for index in range(sample_count):
+            t = index / sample_rate
+            envelope = max(0.0, 1.0 - (index / max(1, sample_count)) / max(decay, 0.01))
+            value = int(32767 * volume * envelope * sin(2 * pi * frequency * t))
+            samples.append(value)
+        return pygame.mixer.Sound(buffer=samples.tobytes())
+
+    def build_chord(
+        self,
+        frequencies: tuple[float, ...],
+        duration_ms: int,
+        volume: float,
+    ) -> pygame.mixer.Sound:
+        sample_rate = 44100
+        sample_count = int(sample_rate * (duration_ms / 1000))
+        samples = array("h")
+        for index in range(sample_count):
+            t = index / sample_rate
+            envelope = max(0.0, 1.0 - index / max(1, sample_count))
+            mixed = sum(sin(2 * pi * frequency * t) for frequency in frequencies) / len(frequencies)
+            value = int(32767 * volume * envelope * mixed)
+            samples.append(value)
+        return pygame.mixer.Sound(buffer=samples.tobytes())
+
+    def play_sound(self, key: str) -> None:
+        if self.sound_enabled and key in self.sounds:
+            self.sounds[key].play()
+
+    def trigger_screen_shake(self, duration: float, strength: float) -> None:
+        self.shake_timer = max(self.shake_timer, duration)
+        self.shake_strength = max(self.shake_strength, strength)
 
     def choose_upgrade(self, key: str) -> None:
         """Apply a run-long level-up upgrade."""
@@ -203,6 +318,7 @@ class Game:
             )
             self.regen_timer = self.regen_interval
             self.spawn_floating_text(self.player_x, self.player_y - 44, "Recovery up", BLUE)
+        self.play_sound("level")
 
     def run(self) -> int:
         while True:
@@ -213,6 +329,17 @@ class Game:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         return 0
+                    if self.state in {"playing", "paused"} and event.key == pygame.K_p:
+                        self.state = "paused" if self.state == "playing" else "playing"
+                        self.play_sound("pause")
+                        continue
+                    if self.state in {"title", "game_over"}:
+                        if event.key in (pygame.K_1, pygame.K_KP1):
+                            self.selected_difficulty = "casual"
+                        elif event.key in (pygame.K_2, pygame.K_KP2):
+                            self.selected_difficulty = "normal"
+                        elif event.key in (pygame.K_3, pygame.K_KP3):
+                            self.selected_difficulty = "crunch"
                     if self.state in {"title", "game_over"} and event.key == pygame.K_SPACE:
                         self.start_run()
                     elif self.state == "level_up":
@@ -248,6 +375,10 @@ class Game:
         self.crisis_banner_timer = max(0.0, self.crisis_banner_timer - dt)
         self.focus_timer = max(0.0, self.focus_timer - dt)
         self.haste_timer = max(0.0, self.haste_timer - dt)
+        self.fire_sound_timer = max(0.0, self.fire_sound_timer - dt)
+        self.shake_timer = max(0.0, self.shake_timer - dt)
+        if self.shake_timer <= 0:
+            self.shake_strength = 0.0
 
         self.move_player(dt)
         self.update_momentum(dt)
@@ -259,7 +390,8 @@ class Game:
         if self.spawn_timer <= 0:
             self.spawn_enemy()
             phase = self.current_phase()
-            self.spawn_timer = max(0.18, phase.spawn_base - min(self.time_survived / 72, 0.18))
+            spawn_base = phase.spawn_base * self.current_difficulty().spawn_interval_mult
+            self.spawn_timer = max(0.18, spawn_base - min(self.time_survived / 72, 0.18))
 
         if self.attack_timer <= 0:
             self.fire_projectiles()
@@ -276,6 +408,7 @@ class Game:
 
         if self.player_hp <= 0:
             self.state = "game_over"
+            self.play_sound("fail")
             if self.time_survived > self.best_time:
                 self.best_time = self.time_survived
                 save_best_time(self.best_time)
@@ -371,8 +504,10 @@ class Game:
     def complete_objective(self, objective: dict) -> None:
         reward = objective["reward"]
         self.xp += reward
+        self.stats["insight"] += reward
         self.focus_timer = 6.0
         self.objective_successes += 1
+        self.stats["deploys"] += 1
         self.player_hp = min(self.player_max_hp, self.player_hp + 6)
         self.spawn_floating_text(
             objective["x"] - 36,
@@ -381,6 +516,7 @@ class Game:
             XP_COLOR,
         )
         self.spawn_floating_text(self.player_x, self.player_y - 48, "Focus mode", GREEN)
+        self.play_sound("deploy")
         self.objective = None
         self.objective_timer = max(8.0, 20.0 - min(self.level, 18) * 0.5)
 
@@ -396,6 +532,7 @@ class Game:
                 hit_count += 1
         if hit_count:
             self.kill_flash = 0.22
+            self.trigger_screen_shake(0.12, 2.0)
             self.spawn_floating_text(
                 self.player_x,
                 self.player_y - 42,
@@ -471,6 +608,7 @@ class Game:
 
         level_pressure = max(0, self.level - 7) * 2.15
         elite_multiplier = 2.2 if elite else 1.0
+        difficulty = self.current_difficulty()
         self.enemies.append(
             {
                 "type": enemy_type,
@@ -481,7 +619,9 @@ class Game:
                     + level_pressure
                     + self.time_survived * (0.35 + self.current_phase().pressure * 0.22)
                 )
+                * difficulty.enemy_hp_mult
                 * elite_multiplier,
+                "damage": enemy_type.damage * difficulty.enemy_damage_mult,
                 "dash_timer": 0.0,
                 "dash_cooldown": 1.4 + random() * 0.9,
                 "dash_vx": 0.0,
@@ -505,6 +645,8 @@ class Game:
         self.crisis_name = crisis
         self.crisis_banner_timer = 2.4
         self.spawn_floating_text(self.player_x, self.player_y - 70, crisis, RED)
+        self.play_sound("crisis")
+        self.trigger_screen_shake(0.2, 3.0)
 
         if crisis == "Standup Swarm":
             bug = next(enemy for enemy in ENEMY_TYPES if enemy.name == "Bug")
@@ -639,6 +781,9 @@ class Game:
                     "pierce": self.pierce,
                 }
             )
+        if self.fire_sound_timer <= 0:
+            self.play_sound("patch")
+            self.fire_sound_timer = 0.08
 
     def effective_attack_cooldown(self) -> float:
         focus_bonus = 0.72 if self.focus_timer > 0 else 1.0
@@ -685,6 +830,7 @@ class Game:
                     <= projectile["radius"] + enemy["type"].radius
                 ):
                     enemy["hp"] -= projectile["damage"]
+                    self.trigger_screen_shake(0.05, 1.0)
                     self.spawn_floating_text(
                         enemy["x"],
                         enemy["y"] - 12,
@@ -711,14 +857,16 @@ class Game:
                 <= self.player_radius + enemy["type"].radius
             ):
                 if self.contact_timer <= 0 and self.grace_timer <= 0:
-                    self.player_hp -= enemy["type"].damage
+                    self.player_hp -= enemy.get("damage", enemy["type"].damage)
                     self.contact_timer = 0.25
                     self.grace_timer = 0.55
                     self.hit_flash = 0.42
+                    self.play_sound("hit")
+                    self.trigger_screen_shake(0.14, 4.0)
                     self.spawn_floating_text(
                         self.player_x,
                         self.player_y - 28,
-                        f"-{int(enemy['type'].damage)}",
+                        f"-{int(enemy.get('damage', enemy['type'].damage))}",
                         RED,
                     )
 
@@ -733,6 +881,7 @@ class Game:
                 self.xp_shards.append({"x": enemy["x"], "y": enemy["y"], "value": value})
                 self.spawn_fix_text(enemy)
                 self.maybe_drop_powerup(enemy)
+                self.track_enemy_resolution(enemy)
                 if enemy["type"].name == "Scope Creep" and enemy.get("split_depth", 0) > 0:
                     self.spawn_scope_split(enemy)
                 self.kill_flash = 0.18
@@ -755,6 +904,18 @@ class Game:
             labels.get(enemy["type"].name, "issue fixed"),
             XP_COLOR,
         )
+
+    def track_enemy_resolution(self, enemy: dict) -> None:
+        stat_map = {
+            "Bug": "bugs_fixed",
+            "Bugling": "bugs_fixed",
+            "Meeting": "meetings_dodged",
+            "Alert": "alerts_silenced",
+            "Scope Creep": "scope_trimmed",
+        }
+        stat_key = stat_map.get(enemy["type"].name)
+        if stat_key is not None:
+            self.stats[stat_key] += 1
 
     def maybe_drop_powerup(self, enemy: dict) -> None:
         """Drop short-term rescue tools without polluting level-up choices."""
@@ -840,7 +1001,10 @@ class Game:
                     "type": EnemyType("Bugling", 12, 122, 16, 8, (218, 170, 255), 0.0),
                     "x": enemy["x"] + offset,
                     "y": enemy["y"] - offset * 0.25,
-                    "hp": 16 + self.time_survived * 0.18,
+                    "hp": (
+                        16 + self.time_survived * 0.18
+                    ) * self.current_difficulty().enemy_hp_mult,
+                    "damage": 8 * self.current_difficulty().enemy_damage_mult,
                     "dash_timer": 0.0,
                     "dash_cooldown": 99.0,
                     "dash_vx": 0.0,
@@ -867,6 +1031,7 @@ class Game:
             ):
                 gained = shard["value"] * self.xp_multiplier()
                 self.xp += gained
+                self.stats["insight"] += gained
                 if shard["value"] >= 8:
                     self.spawn_floating_text(
                         shard["x"],
@@ -903,9 +1068,11 @@ class Game:
 
     def apply_powerup(self, kind: str) -> None:
         """Apply immediate or temporary effects from picked-up powerups."""
+        self.stats["powerups"] += 1
         if kind == "heal":
             recovered = min(28.0, self.player_max_hp - self.player_hp)
             self.player_hp = min(self.player_max_hp, self.player_hp + 28)
+            self.play_sound("pickup")
             self.spawn_floating_text(
                 self.player_x,
                 self.player_y - 44,
@@ -918,6 +1085,8 @@ class Game:
                 self.xp_shards.append({"x": enemy["x"], "y": enemy["y"], "value": 3.0})
             self.enemies = []
             self.kill_flash = 0.6
+            self.play_sound("crisis")
+            self.trigger_screen_shake(0.2, 5.5)
             self.spawn_floating_text(
                 self.player_x,
                 self.player_y - 52,
@@ -926,6 +1095,7 @@ class Game:
             )
         elif kind == "haste":
             self.haste_timer = 7.0
+            self.play_sound("pickup")
             self.spawn_floating_text(self.player_x, self.player_y - 44, "CI Boost", BLUE)
 
     def update_floating_texts(self, dt: float) -> None:
@@ -1012,6 +1182,12 @@ class Game:
         return choices
 
     def draw(self) -> None:
+        shake_x = 0
+        shake_y = 0
+        if self.shake_timer > 0 and self.shake_strength > 0:
+            shake_x = int((random() - 0.5) * 2 * self.shake_strength)
+            shake_y = int((random() - 0.5) * 2 * self.shake_strength)
+
         self.screen.fill(BG)
         self.draw_grid()
         self.draw_objective()
@@ -1120,8 +1296,15 @@ class Game:
             self.draw_title_overlay()
         elif self.state == "level_up":
             self.draw_level_up_overlay()
+        elif self.state == "paused":
+            self.draw_paused_overlay()
         elif self.state == "game_over":
             self.draw_game_over_overlay()
+
+        if shake_x or shake_y:
+            shaken = self.screen.copy()
+            self.screen.fill(BG)
+            self.screen.blit(shaken, (shake_x, shake_y))
 
     def draw_player(self) -> None:
         """Render a readable little developer character without sprite assets."""
@@ -1249,8 +1432,9 @@ class Game:
         self.blit(self.small_font, f"Level {self.level}", TEXT, 28, 106)
         self.blit(self.small_font, f"Best  {self.best_time:05.1f}s", MUTED, 160, 106)
         self.blit(self.small_font, self.current_phase().name, ACCENT, 260, 80)
+        self.blit(self.small_font, self.current_difficulty().label, MUTED, 260, 106)
         if self.current_phase().name == "Alert Storm":
-            self.blit(self.small_font, "Pager noise rising", RED, 260, 106)
+            self.blit(self.small_font, "Pager noise rising", RED, 380, 106)
         if self.crisis_banner_timer > 0:
             self.blit(self.font, self.crisis_name, RED, 500, 28)
 
@@ -1271,22 +1455,23 @@ class Game:
 
         self.blit(self.small_font, "Move: WASD / Arrows", MUTED, 960, 24)
         self.blit(self.small_font, "Upgrades: 1 / 2 / 3", MUTED, 960, 48)
-        self.blit(self.small_font, "Exit: Esc", MUTED, 960, 72)
+        self.blit(self.small_font, "Pause: P", MUTED, 960, 72)
+        self.blit(self.small_font, "Exit: Esc", MUTED, 960, 96)
         if self.regen_interval > 0:
-            self.blit(self.small_font, f"Regen {self.regen_interval:0.1f}s", MUTED, 960, 96)
+            self.blit(self.small_font, f"Regen {self.regen_interval:0.1f}s", MUTED, 960, 120)
         if self.pierce > 0:
-            self.blit(self.small_font, f"Pierce {self.pierce}", MUTED, 960, 120)
+            self.blit(self.small_font, f"Pierce {self.pierce}", MUTED, 960, 144)
         if self.focus_timer > 0:
-            self.blit(self.small_font, f"Focus {self.focus_timer:0.1f}s", GREEN, 960, 144)
+            self.blit(self.small_font, f"Focus {self.focus_timer:0.1f}s", GREEN, 960, 168)
         if self.haste_timer > 0:
-            self.blit(self.small_font, f"CI Boost {self.haste_timer:0.1f}s", BLUE, 960, 168)
+            self.blit(self.small_font, f"CI Boost {self.haste_timer:0.1f}s", BLUE, 960, 192)
         if self.momentum_tier != "Idle":
             self.blit(
                 self.small_font,
                 f"{self.momentum_tier}: Insight x{self.xp_multiplier():0.2f}",
                 GREEN,
                 960,
-                192,
+                216,
             )
         if self.objective is not None:
             self.blit(self.small_font, "Optional: hold deploy window", GREEN, 500, 58)
@@ -1309,6 +1494,15 @@ class Game:
         self.draw_overlay_panel(180, 130, 920, 460)
         self.blit(self.large_font, "Deadline Survivors", TEXT, 248, 180)
         self.blit(self.font, "Ship patches before bugs and deadlines take over.", MUTED, 248, 252)
+        self.blit(self.font, "Pick difficulty: 1 Casual, 2 Normal, 3 Crunch", ACCENT, 248, 288)
+        difficulty = self.current_difficulty()
+        self.blit(
+            self.font,
+            f"Current: {difficulty.label} - {difficulty.description}",
+            TEXT,
+            248,
+            326,
+        )
         lines = [
             "Move constantly. Your developer ships patches automatically.",
             "Keep momentum for better rewards.",
@@ -1320,7 +1514,13 @@ class Game:
             "Press Space to start the run.",
         ]
         for index, line in enumerate(lines):
-            self.blit(self.font, f"• {line}", TEXT, 248, 300 + index * 38)
+            self.blit(self.font, f"• {line}", TEXT, 248, 368 + index * 28)
+
+    def draw_paused_overlay(self) -> None:
+        self.draw_overlay_panel(260, 180, 760, 280)
+        self.blit(self.large_font, "Paused", TEXT, 360, 245)
+        self.blit(self.font, "Press P to continue the deploy.", TEXT, 360, 330)
+        self.blit(self.font, "Use Esc if you want to quit the run.", MUTED, 360, 375)
 
     def draw_floating_texts(self) -> None:
         for item in self.floating_texts:
@@ -1345,11 +1545,32 @@ class Game:
                 self.blit(self.small_font, line, MUTED, rect.x + 20, rect.y + 132 + line_index * 24)
 
     def draw_game_over_overlay(self) -> None:
-        self.draw_overlay_panel(220, 170, 840, 380)
+        self.draw_overlay_panel(180, 120, 920, 470)
         self.blit(self.large_font, "Deploy Failed", TEXT, 300, 230)
-        self.blit(self.font, f"Kept production alive for {self.time_survived:05.1f}s", TEXT, 300, 310)
-        self.blit(self.font, f"Best run {self.best_time:05.1f} seconds", MUTED, 300, 355)
-        self.blit(self.font, "Press Space to restart.", TEXT, 300, 430)
+        self.blit(
+            self.font,
+            f"Kept production alive for {self.time_survived:05.1f}s",
+            TEXT,
+            300,
+            310,
+        )
+        self.blit(self.font, f"Best run {self.best_time:05.1f} seconds", MUTED, 300, 346)
+        stats = [
+            f"Difficulty: {self.current_difficulty().label}",
+            f"Insight: {int(self.stats['insight'])}",
+            f"Bugs fixed: {self.stats['bugs_fixed']}",
+            f"Meetings dodged: {self.stats['meetings_dodged']}",
+            f"Alerts silenced: {self.stats['alerts_silenced']}",
+            f"Scope trimmed: {self.stats['scope_trimmed']}",
+            f"Deploys: {self.stats['deploys']}",
+            f"Powerups used: {self.stats['powerups']}",
+        ]
+        for index, line in enumerate(stats):
+            column_x = 300 if index < 4 else 640
+            row_y = 388 + (index % 4) * 32
+            self.blit(self.small_font, line, TEXT, column_x, row_y)
+        self.blit(self.small_font, "1 Casual  2 Normal  3 Crunch", ACCENT, 300, 522)
+        self.blit(self.font, "Press Space to restart.", TEXT, 300, 555)
 
     def draw_overlay_panel(self, x: int, y: int, width: int, height: int) -> None:
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)

@@ -17,6 +17,16 @@ The design goal is:
 
 Survive as long as possible while shipping patches, collecting insight, taking optional map objectives, and building a stronger developer.
 
+### Difficulty Selection
+
+The title screen and retry screen support three difficulty presets:
+
+- `Casual`: lower pressure and softer enemy stats
+- `Normal`: baseline balance
+- `Crunch`: higher pressure, tougher enemies, and tighter pacing
+
+Difficulty currently affects enemy HP, enemy damage, spawn pace, and insight gain.
+
 ### Enemies
 
 - `Bug`: basic chaser, common and persistent
@@ -110,6 +120,32 @@ The player is rendered as a small developer character with simple procedural sha
 - The character leans slightly toward movement direction, which gives the controls more feedback.
 
 This keeps the project lightweight while leaving room for future skins or sprite assets.
+
+### End-Of-Run Report
+
+When a run fails, the game shows a compact report with:
+
+- survival time
+- selected difficulty
+- total insight collected
+- bugs fixed
+- meetings dodged
+- alerts silenced
+- scope trimmed
+- deploy windows completed
+- powerups used
+
+### Pause And Moment-To-Moment Feedback
+
+The run can now be paused with `P`.
+
+The game also includes lightweight built-in feedback systems:
+
+- procedural sound effects generated at runtime
+- small screen shake for hits, bomb clears, pulse bursts, and crisis spikes
+- pause overlay for longer sessions
+
+These are intentionally small touches, but they make the game feel less like a prototype and more like a playable build.
 
 ### Pressure Phases
 
