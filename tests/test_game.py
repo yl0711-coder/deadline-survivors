@@ -513,6 +513,18 @@ class GameTest(unittest.TestCase):
         self.assertEqual("nightshift", self.game.selected_skin)
         self.assertEqual("nightshift", progression["selected_skin"])
 
+    def test_achievement_unlocks_badge_and_cycle_persists_selection(self) -> None:
+        self.assertEqual(["none"], self.game.unlocked_badges())
+
+        self.game.progression["achievements"]["first_deploy"]["unlocked"] = True
+        self.assertIn("deployer", self.game.unlocked_badges())
+
+        self.game.cycle_badge()
+        progression = load_progression()
+
+        self.assertEqual("deployer", self.game.selected_badge)
+        self.assertEqual("deployer", progression["selected_badge"])
+
 
 if __name__ == "__main__":
     unittest.main()

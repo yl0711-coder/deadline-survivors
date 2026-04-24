@@ -225,6 +225,15 @@ PLAYER_SKINS = {
     },
 }
 
+PLAYER_BADGES = {
+    "none": {"label": "No Badge", "unlock": None, "color": MUTED},
+    "flow": {"label": "Flow Starter", "unlock": "first_overdrive", "color": BLUE},
+    "deployer": {"label": "Deploy Runner", "unlock": "first_deploy", "color": GREEN},
+    "hunter": {"label": "Outage Hunter", "unlock": "first_outage", "color": OUTAGE_COLOR},
+    "reviewer": {"label": "Review Machine", "unlock": "review_cascade", "color": PURPLE},
+    "survivor": {"label": "Crunch Survivor", "unlock": "crunch_survivor", "color": ACCENT},
+}
+
 
 class Game:
     def __init__(self) -> None:
@@ -240,6 +249,7 @@ class Game:
         self.progression = load_progression()
         self.selected_difficulty = "normal"
         self.selected_skin = self.progression.get("selected_skin", "default")
+        self.selected_badge = self.progression.get("selected_badge", "none")
         self.sound_enabled = False
         self.sounds: dict[str, pygame.mixer.Sound] = {}
         self.fire_sound_timer = 0.0
@@ -358,6 +368,27 @@ class Game:
         current_index = skins.index(self.selected_skin) if self.selected_skin in skins else 0
         self.selected_skin = skins[(current_index + 1) % len(skins)]
         self.progression["selected_skin"] = self.selected_skin
+        save_progression(self.best_time, self.progression)
+
+    def unlocked_badges(self) -> list[str]:
+        badges = []
+        for key, badge in PLAYER_BADGES.items():
+            unlock_key = badge["unlock"]
+            if unlock_key is None or self.progression["achievements"].get(unlock_key, {}).get("unlocked"):
+                badges.append(key)
+        return badges
+
+    def current_badge(self) -> dict:
+        if self.selected_badge not in self.unlocked_badges():
+            self.selected_badge = "none"
+            self.progression["selected_badge"] = self.selected_badge
+        return PLAYER_BADGES[self.selected_badge]
+
+    def cycle_badge(self) -> None:
+        badges = self.unlocked_badges()
+        current_index = badges.index(self.selected_badge) if self.selected_badge in badges else 0
+        self.selected_badge = badges[(current_index + 1) % len(badges)]
+        self.progression["selected_badge"] = self.selected_badge
         save_progression(self.best_time, self.progression)
 
     def init_audio(self) -> None:
@@ -506,6 +537,9 @@ class Game:
                         if event.key == pygame.K_a:
                             self.menu_return_state = self.state
                             self.state = "achievements"
+                            continue
+                        if event.key == pygame.K_b:
+                            self.cycle_badge()
                             continue
                         if event.key == pygame.K_s:
                             self.cycle_skin()
@@ -2172,12 +2206,20 @@ class Game:
             326,
         )
         skin = self.current_skin()
+        badge = self.current_badge()
         self.blit(
             self.font,
             f"Skin: {skin['label']} ({len(self.unlocked_skins())}/{len(PLAYER_SKINS)} unlocked) - press S",
             GREEN,
             248,
             352,
+        )
+        self.blit(
+            self.font,
+            f"Badge: {badge['label']} ({len(self.unlocked_badges())}/{len(PLAYER_BADGES)} unlocked) - press B",
+            badge["color"],
+            248,
+            378,
         )
         lines = [
             "Move constantly. Your developer ships patches automatically.",
@@ -2188,11 +2230,12 @@ class Game:
             "Collect insight shards to level up.",
             "Pick upgrades with 1, 2, or 3.",
             "Press A to view local achievements.",
+            "Press B to cycle unlocked badges.",
             "Press S to cycle unlocked skins.",
             "Press Space to start the run.",
         ]
         for index, line in enumerate(lines):
-            self.blit(self.font, f"• {line}", TEXT, 248, 384 + index * 24)
+            self.blit(self.font, f"• {line}", TEXT, 248, 406 + index * 22)
 
     def draw_achievements_overlay(self) -> None:
         self.draw_overlay_panel(120, 70, 1040, 580)
@@ -2322,6 +2365,7 @@ class Game:
     def draw_game_over_overlay(self) -> None:
         self.draw_overlay_panel(180, 120, 920, 470)
         title, description, tags = self.current_run_evaluation()
+        badge = self.current_badge()
         self.blit(self.large_font, "Deploy Failed", TEXT, 300, 230)
         self.blit(
             self.font,
@@ -2346,6 +2390,7 @@ class Game:
                 300,
                 466,
             )
+        self.blit(self.small_font, f"Badge: {badge['label']} (press B)", badge["color"], 640, 466)
         stats = [
             f"Difficulty: {self.current_difficulty().label}",
             f"Insight: {int(self.stats['insight'])}",

@@ -80,6 +80,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - `1`、`2`、`3`：升级时选择选项
 - 在标题页 / 结算页按 `1`、`2`、`3`：选择难度
 - 在标题页 / 结算页按 `A`：打开成就页
+- 在标题页 / 结算页按 `B`：切换已解锁 badge
 - 在标题页 / 结算页按 `S`：切换已解锁皮肤
 - `P`：暂停 / 继续
 - `Esc`：退出
@@ -177,6 +178,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 目前角色样式刻意保持简单，不依赖外部图片素材，方便后续继续迭代。
 
 现在部分成就还会解锁主角皮肤。皮肤选择保存在本地存档里，可以在标题页或结算页按 `S` 切换，不影响平衡，只改变角色外观。
+部分成就现在也会解锁 badge。badge 同样保存在本地存档里，可以在标题页或结算页按 `B` 切换，作为更轻量的长期展示奖励。
 
 ## 结算统计
 

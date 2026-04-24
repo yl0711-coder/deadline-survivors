@@ -164,6 +164,7 @@ The achievements panel can be opened from the title or game-over screen with `A`
 The panel groups achievements into milestone, challenge, build, and mastery sections so the list reads more like a progression page than a flat checklist.
 
 Some achievements now unlock cosmetic player skins. These can be cycled with `S` on the title or game-over screen and are stored locally.
+Achievements can also unlock lightweight badges. These can be cycled with `B` and are persisted locally in the same progression save.
 
 ### Pause And Moment-To-Moment Feedback
 
