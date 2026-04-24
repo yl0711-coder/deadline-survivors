@@ -1700,6 +1700,9 @@ class Game:
             return min(1.0, totals["bugs_fixed"] / 500.0)
         return 0.0
 
+    def achievement_is_recent(self, key: str) -> bool:
+        return key in self.new_achievements
+
     def next_achievement_hint(self) -> tuple[str, str] | None:
         locked = []
         for _, _, rows in ACHIEVEMENT_GROUPS:
@@ -2115,6 +2118,14 @@ class Game:
             178,
         )
         self.blit(
+            self.large_font,
+            f"{int(completion_ratio * 100)}%",
+            GREEN if completion_ratio >= 1.0 else TEXT,
+            980,
+            108,
+        )
+        self.blit(self.small_font, "Progress", MUTED, 1006, 168)
+        self.blit(
             self.small_font,
             f"Runs {totals['runs_played']}  |  Best {float(totals['best_time']):05.1f}s  |  Bugs fixed {totals['bugs_fixed']}",
             MUTED,
@@ -2150,13 +2161,14 @@ class Game:
 
             for row_index, (key, description) in enumerate(rows):
                 unlocked = achievements[key].get("unlocked", False)
+                recent = self.achievement_is_recent(key)
                 row_y = group_y + 62 + row_index * 24
-                marker_color = GREEN if unlocked else GRID
+                marker_color = ACCENT if recent else (GREEN if unlocked else GRID)
                 pygame.draw.circle(self.screen, marker_color, (group_x + 16, row_y + 8), 6)
                 self.blit(
                     self.small_font,
                     ACHIEVEMENT_DEFS[key],
-                    TEXT if unlocked else MUTED,
+                    TEXT if unlocked or recent else MUTED,
                     group_x + 30,
                     row_y - 2,
                 )
@@ -2165,7 +2177,7 @@ class Game:
                 self.blit(
                     self.small_font,
                     progress_text,
-                    marker_color if unlocked else MUTED,
+                    marker_color if unlocked or recent else MUTED,
                     group_x + 286,
                     row_y - 2,
                 )
@@ -2180,6 +2192,8 @@ class Game:
                 wrapped = wrap_text(self.small_font, description, 150)
                 if wrapped:
                     self.blit(self.small_font, wrapped[0], MUTED, group_x + 260, row_y + 10)
+                if recent:
+                    self.blit(self.small_font, "NEW", ACCENT, group_x + 236, row_y - 2)
 
         self.blit(self.small_font, "Press A or Backspace to return.", ACCENT, 170, 610)
 

@@ -496,6 +496,7 @@ class GameTest(unittest.TestCase):
 
     def test_achievements_overlay_can_render_unlocked_and_locked_items(self) -> None:
         self.game.progression["achievements"]["first_deploy"]["unlocked"] = True
+        self.game.new_achievements = ["first_deploy"]
         self.game.state = "achievements"
 
         self.game.draw()
