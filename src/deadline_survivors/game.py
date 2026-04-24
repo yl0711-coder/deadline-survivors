@@ -172,6 +172,59 @@ ACHIEVEMENT_GROUPS = [
     ),
 ]
 
+PLAYER_SKINS = {
+    "default": {
+        "label": "Default",
+        "unlock": None,
+        "body": BLUE,
+        "outline": (52, 116, 205),
+        "skin": PLAYER_COLOR,
+        "hair": (87, 58, 35),
+        "arms": PLAYER_COLOR,
+        "screen": GREEN,
+    },
+    "nightshift": {
+        "label": "Night Shift",
+        "unlock": "first_deploy",
+        "body": (78, 116, 186),
+        "outline": (124, 165, 244),
+        "skin": (244, 206, 132),
+        "hair": (44, 55, 82),
+        "arms": (244, 206, 132),
+        "screen": (111, 214, 255),
+    },
+    "incident": {
+        "label": "Incident Lead",
+        "unlock": "first_outage",
+        "body": (214, 98, 98),
+        "outline": (255, 152, 152),
+        "skin": (252, 214, 154),
+        "hair": (99, 37, 37),
+        "arms": (252, 214, 154),
+        "screen": ACCENT,
+    },
+    "review": {
+        "label": "Code Review",
+        "unlock": "review_cascade",
+        "body": (139, 104, 210),
+        "outline": (207, 177, 255),
+        "skin": (240, 209, 154),
+        "hair": (70, 48, 102),
+        "arms": (240, 209, 154),
+        "screen": PURPLE,
+    },
+    "crunch": {
+        "label": "Crunch Mode",
+        "unlock": "crunch_survivor",
+        "body": (104, 151, 113),
+        "outline": (161, 226, 173),
+        "skin": (244, 209, 153),
+        "hair": (46, 71, 38),
+        "arms": (244, 209, 153),
+        "screen": GREEN,
+    },
+}
+
 
 class Game:
     def __init__(self) -> None:
@@ -186,6 +239,7 @@ class Game:
         self.best_time = load_best_time()
         self.progression = load_progression()
         self.selected_difficulty = "normal"
+        self.selected_skin = self.progression.get("selected_skin", "default")
         self.sound_enabled = False
         self.sounds: dict[str, pygame.mixer.Sound] = {}
         self.fire_sound_timer = 0.0
@@ -284,6 +338,27 @@ class Game:
         return next(
             difficulty for difficulty in DIFFICULTIES if difficulty.key == self.selected_difficulty
         )
+
+    def unlocked_skins(self) -> list[str]:
+        skins = []
+        for key, skin in PLAYER_SKINS.items():
+            unlock_key = skin["unlock"]
+            if unlock_key is None or self.progression["achievements"].get(unlock_key, {}).get("unlocked"):
+                skins.append(key)
+        return skins
+
+    def current_skin(self) -> dict:
+        if self.selected_skin not in self.unlocked_skins():
+            self.selected_skin = "default"
+            self.progression["selected_skin"] = self.selected_skin
+        return PLAYER_SKINS[self.selected_skin]
+
+    def cycle_skin(self) -> None:
+        skins = self.unlocked_skins()
+        current_index = skins.index(self.selected_skin) if self.selected_skin in skins else 0
+        self.selected_skin = skins[(current_index + 1) % len(skins)]
+        self.progression["selected_skin"] = self.selected_skin
+        save_progression(self.best_time, self.progression)
 
     def init_audio(self) -> None:
         """Create small procedural sounds so the game has feedback without assets."""
@@ -431,6 +506,9 @@ class Game:
                         if event.key == pygame.K_a:
                             self.menu_return_state = self.state
                             self.state = "achievements"
+                            continue
+                        if event.key == pygame.K_s:
+                            self.cycle_skin()
                             continue
                         if event.key in (pygame.K_1, pygame.K_KP1):
                             self.selected_difficulty = "casual"
@@ -1871,6 +1949,7 @@ class Game:
 
     def draw_player(self) -> None:
         """Render a readable little developer character without sprite assets."""
+        skin = self.current_skin()
         x = int(self.player_x)
         y = int(self.player_y)
         lean_x = int(self.player_dx * 4)
@@ -1885,16 +1964,16 @@ class Game:
         pygame.draw.rect(self.screen, (63, 92, 145), right_leg, border_radius=4)
 
         body = pygame.Rect(x - 15 + lean_x, y - 4 + lean_y, 30, 27)
-        pygame.draw.rect(self.screen, BLUE, body, border_radius=9)
-        pygame.draw.rect(self.screen, (52, 116, 205), body, 2, border_radius=9)
+        pygame.draw.rect(self.screen, skin["body"], body, border_radius=9)
+        pygame.draw.rect(self.screen, skin["outline"], body, 2, border_radius=9)
 
-        pygame.draw.line(self.screen, PLAYER_COLOR, (x - 13, y + 3), (x - 24, y + 12), 4)
-        pygame.draw.line(self.screen, PLAYER_COLOR, (x + 13, y + 3), (x + 24, y + 12), 4)
+        pygame.draw.line(self.screen, skin["arms"], (x - 13, y + 3), (x - 24, y + 12), 4)
+        pygame.draw.line(self.screen, skin["arms"], (x + 13, y + 3), (x + 24, y + 12), 4)
 
-        pygame.draw.circle(self.screen, PLAYER_COLOR, (x + lean_x, y - 20 + lean_y), 13)
+        pygame.draw.circle(self.screen, skin["skin"], (x + lean_x, y - 20 + lean_y), 13)
         pygame.draw.arc(
             self.screen,
-            (87, 58, 35),
+            skin["hair"],
             (x - 12 + lean_x, y - 32 + lean_y, 24, 16),
             pi,
             pi * 2,
@@ -1914,7 +1993,7 @@ class Game:
         laptop = pygame.Rect(x - 21, y + 5, 42, 19)
         pygame.draw.rect(self.screen, PANEL, laptop, border_radius=4)
         pygame.draw.rect(self.screen, ACCENT, laptop, 2, border_radius=4)
-        self.blit(self.small_font, "</>", GREEN, x - 17, y + 5)
+        self.blit(self.small_font, "</>", skin["screen"], x - 17, y + 5)
         pygame.draw.line(self.screen, MUTED, (x - 24, y + 27), (x + 24, y + 27), 4)
 
     def draw_grid(self) -> None:
@@ -2092,6 +2171,14 @@ class Game:
             248,
             326,
         )
+        skin = self.current_skin()
+        self.blit(
+            self.font,
+            f"Skin: {skin['label']} ({len(self.unlocked_skins())}/{len(PLAYER_SKINS)} unlocked) - press S",
+            GREEN,
+            248,
+            352,
+        )
         lines = [
             "Move constantly. Your developer ships patches automatically.",
             "Keep momentum for better rewards.",
@@ -2101,10 +2188,11 @@ class Game:
             "Collect insight shards to level up.",
             "Pick upgrades with 1, 2, or 3.",
             "Press A to view local achievements.",
+            "Press S to cycle unlocked skins.",
             "Press Space to start the run.",
         ]
         for index, line in enumerate(lines):
-            self.blit(self.font, f"• {line}", TEXT, 248, 368 + index * 28)
+            self.blit(self.font, f"• {line}", TEXT, 248, 384 + index * 24)
 
     def draw_achievements_overlay(self) -> None:
         self.draw_overlay_panel(120, 70, 1040, 580)

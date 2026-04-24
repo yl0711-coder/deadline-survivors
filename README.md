@@ -76,6 +76,7 @@ This repository includes a GitHub Actions workflow that builds artifacts on:
 - `1`, `2`, `3`: choose upgrades during level-up
 - `1`, `2`, `3` on title / game over: choose difficulty
 - `A`: open achievements on title / game over
+- `S`: cycle unlocked player skins on title / game over
 - `P`: pause / resume
 - `Esc`: quit
 
@@ -170,6 +171,8 @@ The player is drawn as a small developer character instead of a plain dot:
 - slight movement lean so direction changes feel more alive
 
 The style is intentionally simple because the project has no external art assets.
+
+Unlocked achievements can now also open cosmetic player skins. Skin selection is local, persists on disk, and can be cycled from the title or game-over screen with `S`.
 
 ## End-Of-Run Stats
 

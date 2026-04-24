@@ -501,6 +501,18 @@ class GameTest(unittest.TestCase):
 
         self.game.draw()
 
+    def test_achievement_unlocks_skin_and_cycle_persists_selection(self) -> None:
+        self.assertEqual(["default"], self.game.unlocked_skins())
+
+        self.game.progression["achievements"]["first_deploy"]["unlocked"] = True
+        self.assertIn("nightshift", self.game.unlocked_skins())
+
+        self.game.cycle_skin()
+        progression = load_progression()
+
+        self.assertEqual("nightshift", self.game.selected_skin)
+        self.assertEqual("nightshift", progression["selected_skin"])
+
 
 if __name__ == "__main__":
     unittest.main()

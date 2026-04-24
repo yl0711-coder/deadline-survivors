@@ -50,6 +50,7 @@ def save_path() -> Path:
 def default_progression() -> dict:
     """Return a fresh progression payload for achievements and cumulative stats."""
     return {
+        "selected_skin": "default",
         "achievements": copy.deepcopy(DEFAULT_ACHIEVEMENTS),
         "totals": copy.deepcopy(DEFAULT_PROGRESS_TOTALS),
     }
@@ -99,6 +100,10 @@ def merge_progression(raw_progression: object) -> dict:
                 progression["totals"][key] = float(value)
             elif isinstance(default_value, int) and isinstance(value, int):
                 progression["totals"][key] = value
+
+    selected_skin = raw_progression.get("selected_skin")
+    if isinstance(selected_skin, str):
+        progression["selected_skin"] = selected_skin
 
     return progression
 
