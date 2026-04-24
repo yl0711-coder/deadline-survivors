@@ -209,6 +209,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 它们会和最高存活时间一起保存在本地存档里，用来提供离线状态下的长期目标。
 
 成就页现在也按里程碑、挑战、build、长期精通四类分组展示，并对较长线的目标显示轻量进度文本。
+顶部还会显示一个 `Next target` 提示，告诉玩家当前最接近完成的目标是什么。
 
 ## 反馈打磨
 

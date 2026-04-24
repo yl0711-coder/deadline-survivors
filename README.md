@@ -205,6 +205,7 @@ The game now tracks a first batch of local achievements without any online accou
 These are stored locally together with best-time data and are intended to add long-term goals before online systems exist.
 
 The achievements panel now groups them into milestone, challenge, build, and mastery sections, and shows lightweight progress text for the longer goals.
+It also shows a `Next target` hint so the player can immediately see the closest unfinished goal.
 
 ## Feedback Polish
 

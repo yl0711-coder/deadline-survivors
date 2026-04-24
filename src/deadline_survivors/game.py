@@ -136,6 +136,7 @@ ACHIEVEMENT_DEFS = {
 ACHIEVEMENT_GROUPS = [
     (
         "Milestones",
+        "First-time moments that teach the run systems.",
         [
             ("first_overdrive", "Reach Overdrive for the first time."),
             ("first_deploy", "Complete a deploy window for the first time."),
@@ -144,6 +145,7 @@ ACHIEVEMENT_GROUPS = [
     ),
     (
         "Challenges",
+        "Single-run goals that push riskier play.",
         [
             ("crunch_survivor", "Survive 10 minutes on Crunch difficulty."),
             ("deploy_addict", "Complete 5 deploys in one run."),
@@ -151,6 +153,7 @@ ACHIEVEMENT_GROUPS = [
     ),
     (
         "Build Goals",
+        "Targets that encourage different upgrade routes.",
         [
             ("pair_flow", "Reach 2 Pair Programmer helpers."),
             ("review_cascade", "Chain through 3 targets in one cascade."),
@@ -158,6 +161,7 @@ ACHIEVEMENT_GROUPS = [
     ),
     (
         "Mastery",
+        "Long-term progress across many runs.",
         [
             ("bug_tracker", "Fix 500 bugs across runs."),
         ],
@@ -1678,6 +1682,36 @@ class Game:
             return f"{min(totals['bugs_fixed'], 500)}/500"
         return "Done" if self.progression["achievements"][key].get("unlocked") else "Not yet"
 
+    def achievement_progress_ratio(self, key: str) -> float:
+        totals = self.progression["totals"]
+        if self.progression["achievements"][key].get("unlocked"):
+            return 1.0
+        if key == "crunch_survivor":
+            if self.selected_difficulty != "crunch":
+                return 0.0
+            return min(1.0, self.time_survived / 600.0)
+        if key == "deploy_addict":
+            return min(1.0, self.stats["deploys"] / 5.0)
+        if key == "pair_flow":
+            return min(1.0, self.drone_count / 2.0)
+        if key == "review_cascade":
+            return min(1.0, self.max_chain_hits / 3.0)
+        if key == "bug_tracker":
+            return min(1.0, totals["bugs_fixed"] / 500.0)
+        return 0.0
+
+    def next_achievement_hint(self) -> tuple[str, str] | None:
+        locked = []
+        for _, _, rows in ACHIEVEMENT_GROUPS:
+            for key, description in rows:
+                if not self.progression["achievements"][key].get("unlocked"):
+                    locked.append((self.achievement_progress_ratio(key), key, description))
+        if not locked:
+            return None
+        locked.sort(reverse=True)
+        _, key, description = locked[0]
+        return (ACHIEVEMENT_DEFS[key], description)
+
     def draw(self) -> None:
         shake_x = 0
         shake_y = 0
@@ -2088,9 +2122,16 @@ class Game:
             214,
         )
         self.draw_bar(170, 236, 240, 10, completion_ratio, GREEN, "Completion")
+        next_hint = self.next_achievement_hint()
+        if next_hint is not None:
+            hint_title, hint_description = next_hint
+            self.blit(self.small_font, f"Next target: {hint_title}", GREEN, 470, 236)
+            self.blit(self.small_font, hint_description, MUTED, 470, 260)
+        else:
+            self.blit(self.small_font, "All current achievements unlocked.", GREEN, 470, 236)
 
         group_positions = [(160, 280), (610, 280), (160, 470), (610, 470)]
-        for index, (group_name, rows) in enumerate(ACHIEVEMENT_GROUPS):
+        for index, (group_name, group_description, rows) in enumerate(ACHIEVEMENT_GROUPS):
             group_x, group_y = group_positions[index]
             group_rect = pygame.Rect(group_x, group_y, 410, 150)
             pygame.draw.rect(self.screen, PANEL, group_rect, border_radius=16)
@@ -2105,10 +2146,11 @@ class Game:
                 group_x + 270,
                 group_y + 16,
             )
+            self.blit(self.small_font, group_description, MUTED, group_x + 14, group_y + 40)
 
             for row_index, (key, description) in enumerate(rows):
                 unlocked = achievements[key].get("unlocked", False)
-                row_y = group_y + 44 + row_index * 32
+                row_y = group_y + 62 + row_index * 24
                 marker_color = GREEN if unlocked else GRID
                 pygame.draw.circle(self.screen, marker_color, (group_x + 16, row_y + 8), 6)
                 self.blit(
@@ -2118,11 +2160,26 @@ class Game:
                     group_x + 30,
                     row_y - 2,
                 )
+                progress_ratio = self.achievement_progress_ratio(key)
                 progress_text = self.achievement_progress_text(key)
-                self.blit(self.small_font, progress_text, marker_color if unlocked else MUTED, group_x + 278, row_y - 2)
-                wrapped = wrap_text(self.small_font, description, 320)
+                self.blit(
+                    self.small_font,
+                    progress_text,
+                    marker_color if unlocked else MUTED,
+                    group_x + 286,
+                    row_y - 2,
+                )
+                progress_bar_rect = pygame.Rect(group_x + 30, row_y + 16, 220, 6)
+                pygame.draw.rect(self.screen, GRID, progress_bar_rect, border_radius=999)
+                pygame.draw.rect(
+                    self.screen,
+                    GREEN if unlocked else ACCENT,
+                    (progress_bar_rect.x, progress_bar_rect.y, int(progress_bar_rect.width * progress_ratio), progress_bar_rect.height),
+                    border_radius=999,
+                )
+                wrapped = wrap_text(self.small_font, description, 150)
                 if wrapped:
-                    self.blit(self.small_font, wrapped[0], MUTED, group_x + 30, row_y + 14)
+                    self.blit(self.small_font, wrapped[0], MUTED, group_x + 260, row_y + 10)
 
         self.blit(self.small_font, "Press A or Backspace to return.", ACCENT, 170, 610)
 
