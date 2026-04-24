@@ -2443,6 +2443,13 @@ class Game:
         title, description, tags = self.current_run_evaluation()
         badge = self.current_badge()
         patch_theme = self.current_patch_theme()
+        summary_rect = pygame.Rect(278, 214, 724, 160)
+        stats_rect = pygame.Rect(278, 448, 724, 124)
+        side_rect = pygame.Rect(278, 388, 724, 48)
+        for rect in (summary_rect, side_rect, stats_rect):
+            pygame.draw.rect(self.screen, BG, rect, border_radius=18)
+            pygame.draw.rect(self.screen, GRID, rect, 1, border_radius=18)
+
         self.blit(self.large_font, "Deploy Failed", TEXT, 300, 230)
         self.blit(
             self.font,
@@ -2457,7 +2464,8 @@ class Game:
         for index, line in enumerate(wrapped[:2]):
             self.blit(self.small_font, line, MUTED, 300, 396 + index * 22)
         if tags:
-            self.blit(self.small_font, "Tags: " + "  |  ".join(tags), GREEN, 300, 444)
+            self.blit(self.small_font, "Tags", MUTED, 300, 410 + 20)
+            self.blit(self.small_font, "  |  ".join(tags[:3]), GREEN, 352, 430)
         if self.new_achievements:
             unlocked_names = [ACHIEVEMENT_DEFS.get(key, key) for key in self.new_achievements[:2]]
             self.blit(
@@ -2465,15 +2473,15 @@ class Game:
                 "Unlocked: " + "  |  ".join(unlocked_names),
                 ACCENT,
                 300,
-                466,
+                402,
             )
-        self.blit(self.small_font, f"Badge: {badge['label']} (press B)", badge["color"], 640, 466)
+        self.blit(self.small_font, f"Badge: {badge['label']} (press B)", badge["color"], 640, 402)
         self.blit(
             self.small_font,
             f"Patch theme: {patch_theme['label']} (press T)",
             patch_theme["color"],
             640,
-            488,
+            424,
         )
         stats = [
             f"Difficulty: {self.current_difficulty().label}",
@@ -2488,11 +2496,11 @@ class Game:
         ]
         for index, line in enumerate(stats):
             column_x = 300 if index < 5 else 640
-            row_y = 514 + (index % 5) * 22
+            row_y = 470 + (index % 5) * 20
             self.blit(self.small_font, line, TEXT, column_x, row_y)
-        self.blit(self.small_font, "Press A to view achievements.", GREEN, 640, 602 - 78)
-        self.blit(self.small_font, "1 Casual  2 Normal  3 Crunch", ACCENT, 300, 532 + 70)
-        self.blit(self.font, "Press Space to restart.", TEXT, 300, 567 + 40 - 10)
+        self.blit(self.small_font, "Press A to view achievements.", GREEN, 300, 586)
+        self.blit(self.small_font, "1 Casual  2 Normal  3 Crunch", ACCENT, 560, 586)
+        self.blit(self.font, "Press Space to restart.", TEXT, 300, 612)
 
     def draw_overlay_panel(self, x: int, y: int, width: int, height: int) -> None:
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
