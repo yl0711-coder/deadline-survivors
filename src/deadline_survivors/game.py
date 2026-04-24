@@ -136,6 +136,7 @@ ACHIEVEMENT_DEFS = {
 ACHIEVEMENT_GROUPS = [
     (
         "Milestones",
+        BLUE,
         "First-time moments that teach the run systems.",
         [
             ("first_overdrive", "Reach Overdrive for the first time."),
@@ -145,6 +146,7 @@ ACHIEVEMENT_GROUPS = [
     ),
     (
         "Challenges",
+        ACCENT,
         "Single-run goals that push riskier play.",
         [
             ("crunch_survivor", "Survive 10 minutes on Crunch difficulty."),
@@ -153,6 +155,7 @@ ACHIEVEMENT_GROUPS = [
     ),
     (
         "Build Goals",
+        PURPLE,
         "Targets that encourage different upgrade routes.",
         [
             ("pair_flow", "Reach 2 Pair Programmer helpers."),
@@ -161,6 +164,7 @@ ACHIEVEMENT_GROUPS = [
     ),
     (
         "Mastery",
+        GREEN,
         "Long-term progress across many runs.",
         [
             ("bug_tracker", "Fix 500 bugs across runs."),
@@ -1705,7 +1709,7 @@ class Game:
 
     def next_achievement_hint(self) -> tuple[str, str] | None:
         locked = []
-        for _, _, rows in ACHIEVEMENT_GROUPS:
+        for _, _, _, rows in ACHIEVEMENT_GROUPS:
             for key, description in rows:
                 if not self.progression["achievements"][key].get("unlocked"):
                     locked.append((self.achievement_progress_ratio(key), key, description))
@@ -2142,12 +2146,14 @@ class Game:
             self.blit(self.small_font, "All current achievements unlocked.", GREEN, 470, 236)
 
         group_positions = [(160, 280), (610, 280), (160, 470), (610, 470)]
-        for index, (group_name, group_description, rows) in enumerate(ACHIEVEMENT_GROUPS):
+        for index, (group_name, group_color, group_description, rows) in enumerate(ACHIEVEMENT_GROUPS):
             group_x, group_y = group_positions[index]
             group_rect = pygame.Rect(group_x, group_y, 410, 150)
             pygame.draw.rect(self.screen, PANEL, group_rect, border_radius=16)
+            pygame.draw.rect(self.screen, group_color, (group_x, group_y, 410, 6), border_radius=16)
             pygame.draw.rect(self.screen, GRID, group_rect, 2, border_radius=16)
-            self.blit(self.font, group_name, ACCENT, group_x + 14, group_y + 12)
+            pygame.draw.circle(self.screen, group_color, (group_x + 18, group_y + 22), 7)
+            self.blit(self.font, group_name, group_color, group_x + 34, group_y + 12)
 
             unlocked_in_group = sum(1 for key, _ in rows if achievements[key].get("unlocked"))
             self.blit(
