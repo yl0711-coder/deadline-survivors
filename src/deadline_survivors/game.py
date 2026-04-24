@@ -1463,6 +1463,7 @@ class Game:
         enemy["y"] += sin(angle) * enemy_type.speed * dt
 
     def advance_outage(self, enemy: dict, dt: float) -> None:
+        enemy_type = enemy["type"]
         hp_ratio = enemy["hp"] / max(1.0, enemy.get("max_hp", enemy["hp"]))
         if hp_ratio <= 0.5 and not enemy["rage"]:
             enemy["rage"] = True
@@ -2300,6 +2301,10 @@ class Game:
         )
         self.blit(self.small_font, "Achievements  -  A", ACCENT, 248, 460)
         self.blit(self.font, "Press Space to start", TEXT, 248, 520)
+        self.blit(self.small_font, "Equipped loadout", MUTED, 248, 548)
+        self.draw_equipped_chip(248, 576, skin["label"], skin["outline"])
+        self.draw_equipped_chip(440, 576, badge["label"], badge["color"])
+        self.draw_equipped_chip(660, 576, patch_theme["label"], patch_theme["color"])
 
         right_x = 650
         self.blit(self.font, "How Runs Work", ACCENT, right_x, 294)
@@ -2483,6 +2488,10 @@ class Game:
             640,
             424,
         )
+        self.blit(self.small_font, "Current loadout", MUTED, 300, 432)
+        self.draw_equipped_chip(300, 454, self.current_skin()["label"], self.current_skin()["outline"])
+        self.draw_equipped_chip(492, 454, badge["label"], badge["color"])
+        self.draw_equipped_chip(712, 454, patch_theme["label"], patch_theme["color"])
         stats = [
             f"Difficulty: {self.current_difficulty().label}",
             f"Insight: {int(self.stats['insight'])}",
@@ -2508,6 +2517,21 @@ class Game:
         self.screen.blit(overlay, (0, 0))
         pygame.draw.rect(self.screen, PANEL, (x, y, width, height), border_radius=22)
         pygame.draw.rect(self.screen, ACCENT, (x, y, width, height), 2, border_radius=22)
+
+    def draw_equipped_chip(
+        self,
+        x: int,
+        y: int,
+        label: str,
+        color: tuple[int, int, int],
+    ) -> None:
+        text_width, _ = self.small_font.size(label)
+        width = text_width + 30
+        rect = pygame.Rect(x, y, width, 28)
+        pygame.draw.rect(self.screen, PANEL, rect, border_radius=999)
+        pygame.draw.rect(self.screen, color, rect, 2, border_radius=999)
+        pygame.draw.circle(self.screen, color, (x + 14, y + 14), 5)
+        self.blit(self.small_font, label, TEXT, x + 24, y + 5)
 
     def blit(
         self,

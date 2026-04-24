@@ -178,6 +178,17 @@ class GameTest(unittest.TestCase):
         self.assertGreater(len(self.game.hazards), 0)
         self.assertGreater(len(self.game.enemies), enemy_count_before)
 
+    def test_outage_advance_moves_without_missing_enemy_type(self) -> None:
+        self.game.start_run()
+        self.game.spawn_outage_boss()
+        outage = next(enemy for enemy in self.game.enemies if enemy["type"].name == "Outage")
+        start_x = outage["x"]
+        start_y = outage["y"]
+
+        self.game.advance_outage(outage, 0.1)
+
+        self.assertNotEqual((start_x, start_y), (outage["x"], outage["y"]))
+
     def test_projectile_damage_has_multicast_diminishing_returns(self) -> None:
         self.game.start_run()
         self.game.projectile_count = 6
