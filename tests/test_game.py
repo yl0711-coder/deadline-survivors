@@ -494,6 +494,24 @@ class GameTest(unittest.TestCase):
         self.assertTrue(progression["achievements"]["review_cascade"]["unlocked"])
         self.assertTrue(progression["achievements"]["bug_tracker"]["unlocked"])
 
+    def test_progression_snapshot_persists_run_achievements_on_exit(self) -> None:
+        self.game.start_run()
+        self.game.selected_difficulty = "crunch"
+        self.game.time_survived = 601
+        self.game.stats["deploys"] = 5
+        self.game.drone_count = 2
+        self.game.max_chain_hits = 3
+
+        self.game.persist_progression_snapshot()
+        progression = load_progression()
+
+        self.assertEqual(601, progression["totals"]["best_time"])
+        self.assertTrue(progression["achievements"]["crunch_survivor"]["unlocked"])
+        self.assertTrue(progression["achievements"]["deploy_addict"]["unlocked"])
+        self.assertTrue(progression["achievements"]["pair_flow"]["unlocked"])
+        self.assertTrue(progression["achievements"]["review_cascade"]["unlocked"])
+        self.assertFalse(progression["achievements"]["bug_tracker"]["unlocked"])
+
     def test_achievements_overlay_can_render_unlocked_and_locked_items(self) -> None:
         self.game.progression["achievements"]["first_deploy"]["unlocked"] = True
         self.game.new_achievements = ["first_deploy"]

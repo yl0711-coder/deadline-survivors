@@ -521,9 +521,11 @@ class Game:
             dt = self.clock.tick(FPS) / 1000
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    self.persist_progression_snapshot()
                     return 0
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
+                        self.persist_progression_snapshot()
                         return 0
                     if self.state == "achievements":
                         if event.key in (pygame.K_a, pygame.K_BACKSPACE):
@@ -1759,6 +1761,11 @@ class Game:
         totals["runs_played"] += 1
         totals["best_time"] = max(float(totals["best_time"]), self.time_survived, self.best_time)
 
+        self.apply_run_based_achievement_checks(include_cumulative=True)
+
+        save_progression(self.best_time, self.progression)
+
+    def apply_run_based_achievement_checks(self, include_cumulative: bool) -> None:
         if self.selected_difficulty == "crunch" and self.time_survived >= 600:
             self.unlock_achievement("crunch_survivor")
         if self.stats["deploys"] >= 5:
@@ -1767,9 +1774,16 @@ class Game:
             self.unlock_achievement("pair_flow")
         if self.max_chain_hits >= 3:
             self.unlock_achievement("review_cascade")
-        if totals["bugs_fixed"] >= 500:
+        if include_cumulative and self.progression["totals"]["bugs_fixed"] >= 500:
             self.unlock_achievement("bug_tracker")
 
+    def persist_progression_snapshot(self) -> None:
+        self.best_time = max(self.best_time, self.time_survived)
+        self.progression["totals"]["best_time"] = max(
+            float(self.progression["totals"]["best_time"]),
+            self.best_time,
+        )
+        self.apply_run_based_achievement_checks(include_cumulative=False)
         save_progression(self.best_time, self.progression)
 
     def achievement_progress_text(self, key: str) -> str:
@@ -2196,46 +2210,52 @@ class Game:
         self.draw_overlay_panel(180, 130, 920, 460)
         self.blit(self.large_font, "Deadline Survivors", TEXT, 248, 180)
         self.blit(self.font, "Ship patches before bugs and deadlines take over.", MUTED, 248, 252)
-        self.blit(self.font, "Pick difficulty: 1 Casual, 2 Normal, 3 Crunch", ACCENT, 248, 288)
         difficulty = self.current_difficulty()
-        self.blit(
-            self.font,
-            f"Current: {difficulty.label} - {difficulty.description}",
-            TEXT,
-            248,
-            326,
-        )
         skin = self.current_skin()
         badge = self.current_badge()
+        self.blit(self.font, "Run Setup", ACCENT, 248, 294)
         self.blit(
-            self.font,
-            f"Skin: {skin['label']} ({len(self.unlocked_skins())}/{len(PLAYER_SKINS)} unlocked) - press S",
-            GREEN,
+            self.small_font,
+            "Difficulty: 1 Casual  2 Normal  3 Crunch",
+            TEXT,
+            248,
+            328,
+        )
+        self.blit(
+            self.small_font,
+            f"Current: {difficulty.label} - {difficulty.description}",
+            MUTED,
             248,
             352,
         )
         self.blit(
-            self.font,
-            f"Badge: {badge['label']} ({len(self.unlocked_badges())}/{len(PLAYER_BADGES)} unlocked) - press B",
+            self.small_font,
+            f"Skin: {skin['label']} ({len(self.unlocked_skins())}/{len(PLAYER_SKINS)})  -  S",
+            GREEN,
+            248,
+            388,
+        )
+        self.blit(
+            self.small_font,
+            f"Badge: {badge['label']} ({len(self.unlocked_badges())}/{len(PLAYER_BADGES)})  -  B",
             badge["color"],
             248,
-            378,
+            412,
         )
-        lines = [
-            "Move constantly. Your developer ships patches automatically.",
-            "Keep momentum for better rewards.",
-            "Capture deploy windows for Focus mode.",
-            "Pick up Coffee Breaks, Refactor Bombs, and CI Boosts.",
-            "Red deadline zones punish standing still.",
-            "Collect insight shards to level up.",
-            "Pick upgrades with 1, 2, or 3.",
-            "Press A to view local achievements.",
-            "Press B to cycle unlocked badges.",
-            "Press S to cycle unlocked skins.",
-            "Press Space to start the run.",
+        self.blit(self.small_font, "Achievements  -  A", ACCENT, 248, 448)
+        self.blit(self.font, "Press Space to start", TEXT, 248, 520)
+
+        right_x = 650
+        self.blit(self.font, "How Runs Work", ACCENT, right_x, 294)
+        summary_lines = [
+            "Move to keep momentum high.",
+            "Deploy windows trade risk for growth.",
+            "Powerups handle short-term recovery.",
+            "Outages create mini-boss pressure.",
+            "Achievements unlock cosmetics over time.",
         ]
-        for index, line in enumerate(lines):
-            self.blit(self.font, f"• {line}", TEXT, 248, 406 + index * 22)
+        for index, line in enumerate(summary_lines):
+            self.blit(self.small_font, f"• {line}", TEXT, right_x, 332 + index * 28)
 
     def draw_achievements_overlay(self) -> None:
         self.draw_overlay_panel(120, 70, 1040, 580)
