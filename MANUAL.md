@@ -165,6 +165,7 @@ The panel groups achievements into milestone, challenge, build, and mastery sect
 
 Some achievements now unlock cosmetic player skins. These can be cycled with `S` on the title or game-over screen and are stored locally.
 Achievements can also unlock lightweight badges. These can be cycled with `B` and are persisted locally in the same progression save.
+Achievements can also unlock patch themes. These can be cycled with `T`, persist locally, and still inherit momentum color shifts during `Flow` and `Overdrive`.
 
 ### Pause And Moment-To-Moment Feedback
 

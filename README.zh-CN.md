@@ -82,6 +82,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - 在标题页 / 结算页按 `A`：打开成就页
 - 在标题页 / 结算页按 `B`：切换已解锁 badge
 - 在标题页 / 结算页按 `S`：切换已解锁皮肤
+- 在标题页 / 结算页按 `T`：切换已解锁 patch 主题
 - `P`：暂停 / 继续
 - `Esc`：退出
 
@@ -179,6 +180,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 
 现在部分成就还会解锁主角皮肤。皮肤选择保存在本地存档里，可以在标题页或结算页按 `S` 切换，不影响平衡，只改变角色外观。
 部分成就现在也会解锁 badge。badge 同样保存在本地存档里，可以在标题页或结算页按 `B` 切换，作为更轻量的长期展示奖励。
+部分成就现在也会解锁 patch 主题色。主题同样保存在本地存档里，可以在标题页或结算页按 `T` 切换，并且在 `Flow` / `Overdrive` 状态下依然会继续发生明显的颜色变化。
 
 ## 结算统计
 

@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
-from deadline_survivors.game import ENEMY_TYPES, Game
+from deadline_survivors.game import ACCENT, ENEMY_TYPES, GREEN, Game
 from deadline_survivors.storage import load_progression
 
 
@@ -542,6 +542,35 @@ class GameTest(unittest.TestCase):
 
         self.assertEqual("deployer", self.game.selected_badge)
         self.assertEqual("deployer", progression["selected_badge"])
+
+    def test_achievement_unlocks_patch_theme_and_cycle_persists_selection(self) -> None:
+        self.assertEqual(["default"], self.game.unlocked_patch_themes())
+
+        self.game.progression["achievements"]["review_cascade"]["unlocked"] = True
+        self.assertIn("review", self.game.unlocked_patch_themes())
+
+        self.game.cycle_patch_theme()
+        progression = load_progression()
+
+        self.assertEqual("review", self.game.selected_patch_theme)
+        self.assertEqual("review", progression["selected_patch_theme"])
+
+    def test_patch_theme_colors_still_shift_with_momentum(self) -> None:
+        self.game.progression["achievements"]["review_cascade"]["unlocked"] = True
+        self.game.selected_patch_theme = "review"
+
+        idle_color = self.game.projectile_color()
+        self.assertEqual(self.game.current_patch_theme()["color"], idle_color)
+
+        self.game.momentum_tier = "Flow"
+        flow_color = self.game.projectile_color()
+        self.assertNotEqual(idle_color, flow_color)
+        self.assertNotEqual(ACCENT, flow_color)
+
+        self.game.momentum_tier = "Overdrive"
+        overdrive_color = self.game.projectile_color()
+        self.assertNotEqual(idle_color, overdrive_color)
+        self.assertNotEqual(GREEN, overdrive_color)
 
 
 if __name__ == "__main__":

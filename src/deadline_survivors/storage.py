@@ -52,6 +52,7 @@ def default_progression() -> dict:
     return {
         "selected_skin": "default",
         "selected_badge": "none",
+        "selected_patch_theme": "default",
         "achievements": copy.deepcopy(DEFAULT_ACHIEVEMENTS),
         "totals": copy.deepcopy(DEFAULT_PROGRESS_TOTALS),
     }
@@ -109,6 +110,10 @@ def merge_progression(raw_progression: object) -> dict:
     selected_badge = raw_progression.get("selected_badge")
     if isinstance(selected_badge, str):
         progression["selected_badge"] = selected_badge
+
+    selected_patch_theme = raw_progression.get("selected_patch_theme")
+    if isinstance(selected_patch_theme, str):
+        progression["selected_patch_theme"] = selected_patch_theme
 
     return progression
 

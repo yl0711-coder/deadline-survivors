@@ -234,6 +234,15 @@ PLAYER_BADGES = {
     "survivor": {"label": "Crunch Survivor", "unlock": "crunch_survivor", "color": ACCENT},
 }
 
+PATCH_THEMES = {
+    "default": {"label": "Default", "unlock": None, "color": PROJECTILE_COLOR},
+    "flow": {"label": "Flow Signal", "unlock": "first_overdrive", "color": BLUE},
+    "deploy": {"label": "Deploy Green", "unlock": "first_deploy", "color": GREEN},
+    "incident": {"label": "Incident Red", "unlock": "first_outage", "color": OUTAGE_COLOR},
+    "review": {"label": "Review Purple", "unlock": "review_cascade", "color": PURPLE},
+    "tracker": {"label": "Tracker Gold", "unlock": "bug_tracker", "color": XP_COLOR},
+}
+
 
 class Game:
     def __init__(self) -> None:
@@ -250,6 +259,7 @@ class Game:
         self.selected_difficulty = "normal"
         self.selected_skin = self.progression.get("selected_skin", "default")
         self.selected_badge = self.progression.get("selected_badge", "none")
+        self.selected_patch_theme = self.progression.get("selected_patch_theme", "default")
         self.sound_enabled = False
         self.sounds: dict[str, pygame.mixer.Sound] = {}
         self.fire_sound_timer = 0.0
@@ -389,6 +399,29 @@ class Game:
         current_index = badges.index(self.selected_badge) if self.selected_badge in badges else 0
         self.selected_badge = badges[(current_index + 1) % len(badges)]
         self.progression["selected_badge"] = self.selected_badge
+        save_progression(self.best_time, self.progression)
+
+    def unlocked_patch_themes(self) -> list[str]:
+        themes = []
+        for key, theme in PATCH_THEMES.items():
+            unlock_key = theme["unlock"]
+            if unlock_key is None or self.progression["achievements"].get(unlock_key, {}).get("unlocked"):
+                themes.append(key)
+        return themes
+
+    def current_patch_theme(self) -> dict:
+        if self.selected_patch_theme not in self.unlocked_patch_themes():
+            self.selected_patch_theme = "default"
+            self.progression["selected_patch_theme"] = self.selected_patch_theme
+        return PATCH_THEMES[self.selected_patch_theme]
+
+    def cycle_patch_theme(self) -> None:
+        themes = self.unlocked_patch_themes()
+        current_index = (
+            themes.index(self.selected_patch_theme) if self.selected_patch_theme in themes else 0
+        )
+        self.selected_patch_theme = themes[(current_index + 1) % len(themes)]
+        self.progression["selected_patch_theme"] = self.selected_patch_theme
         save_progression(self.best_time, self.progression)
 
     def init_audio(self) -> None:
@@ -545,6 +578,9 @@ class Game:
                             continue
                         if event.key == pygame.K_s:
                             self.cycle_skin()
+                            continue
+                        if event.key == pygame.K_t:
+                            self.cycle_patch_theme()
                             continue
                         if event.key in (pygame.K_1, pygame.K_KP1):
                             self.selected_difficulty = "casual"
@@ -1117,11 +1153,23 @@ class Game:
         return 5
 
     def projectile_color(self) -> tuple[int, int, int]:
+        theme_color = self.current_patch_theme()["color"]
         if self.momentum_tier == "Overdrive":
-            return GREEN
+            return self.mix_color(theme_color, GREEN, 0.72)
         if self.momentum_tier == "Flow":
-            return ACCENT
-        return PROJECTILE_COLOR
+            return self.mix_color(theme_color, ACCENT, 0.4)
+        return theme_color
+
+    def mix_color(
+        self,
+        base: tuple[int, int, int],
+        accent: tuple[int, int, int],
+        ratio: float,
+    ) -> tuple[int, int, int]:
+        ratio = max(0.0, min(1.0, ratio))
+        return tuple(
+            int(base[index] * (1.0 - ratio) + accent[index] * ratio) for index in range(3)
+        )
 
     def update_projectiles(self, dt: float) -> None:
         next_projectiles = []
@@ -2213,6 +2261,7 @@ class Game:
         difficulty = self.current_difficulty()
         skin = self.current_skin()
         badge = self.current_badge()
+        patch_theme = self.current_patch_theme()
         self.blit(self.font, "Run Setup", ACCENT, 248, 294)
         self.blit(
             self.small_font,
@@ -2242,7 +2291,14 @@ class Game:
             248,
             412,
         )
-        self.blit(self.small_font, "Achievements  -  A", ACCENT, 248, 448)
+        self.blit(
+            self.small_font,
+            f"Patch theme: {patch_theme['label']} ({len(self.unlocked_patch_themes())}/{len(PATCH_THEMES)})  -  T",
+            patch_theme["color"],
+            248,
+            436,
+        )
+        self.blit(self.small_font, "Achievements  -  A", ACCENT, 248, 460)
         self.blit(self.font, "Press Space to start", TEXT, 248, 520)
 
         right_x = 650
@@ -2386,6 +2442,7 @@ class Game:
         self.draw_overlay_panel(180, 120, 920, 470)
         title, description, tags = self.current_run_evaluation()
         badge = self.current_badge()
+        patch_theme = self.current_patch_theme()
         self.blit(self.large_font, "Deploy Failed", TEXT, 300, 230)
         self.blit(
             self.font,
@@ -2411,6 +2468,13 @@ class Game:
                 466,
             )
         self.blit(self.small_font, f"Badge: {badge['label']} (press B)", badge["color"], 640, 466)
+        self.blit(
+            self.small_font,
+            f"Patch theme: {patch_theme['label']} (press T)",
+            patch_theme["color"],
+            640,
+            488,
+        )
         stats = [
             f"Difficulty: {self.current_difficulty().label}",
             f"Insight: {int(self.stats['insight'])}",
@@ -2424,7 +2488,7 @@ class Game:
         ]
         for index, line in enumerate(stats):
             column_x = 300 if index < 5 else 640
-            row_y = 492 + (index % 5) * 22
+            row_y = 514 + (index % 5) * 22
             self.blit(self.small_font, line, TEXT, column_x, row_y)
         self.blit(self.small_font, "Press A to view achievements.", GREEN, 640, 602 - 78)
         self.blit(self.small_font, "1 Casual  2 Normal  3 Crunch", ACCENT, 300, 532 + 70)

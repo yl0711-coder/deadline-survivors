@@ -78,6 +78,7 @@ This repository includes a GitHub Actions workflow that builds artifacts on:
 - `A`: open achievements on title / game over
 - `B`: cycle unlocked badges on title / game over
 - `S`: cycle unlocked player skins on title / game over
+- `T`: cycle unlocked patch themes on title / game over
 - `P`: pause / resume
 - `Esc`: quit
 
@@ -175,6 +176,7 @@ The style is intentionally simple because the project has no external art assets
 
 Unlocked achievements can now also open cosmetic player skins. Skin selection is local, persists on disk, and can be cycled from the title or game-over screen with `S`.
 Achievements can also unlock lightweight title badges, which can be cycled with `B` and are stored locally.
+Achievements can also unlock patch color themes. These can be cycled with `T`, are stored locally, and still shift visibly during `Flow` and `Overdrive`.
 
 ## End-Of-Run Stats
 
