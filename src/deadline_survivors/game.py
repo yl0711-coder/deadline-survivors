@@ -2583,6 +2583,13 @@ class Game:
     def draw_game_over_overlay(self) -> None:
         self.draw_overlay_panel(190, 88, 900, 540)
         title, description, tags = self.current_run_evaluation()
+        self.draw_game_over_cards()
+        self.draw_game_over_header()
+        self.draw_game_over_evaluation(title, description, tags)
+        self.draw_game_over_stats()
+        self.draw_game_over_menu()
+
+    def draw_game_over_cards(self) -> None:
         summary_rect = pygame.Rect(250, 204, 780, 154)
         stats_rect = pygame.Rect(250, 376, 780, 112)
         menu_rect = pygame.Rect(250, 506, 780, 94)
@@ -2590,6 +2597,7 @@ class Game:
             pygame.draw.rect(self.screen, BG, rect, border_radius=18)
             pygame.draw.rect(self.screen, GRID, rect, 1, border_radius=18)
 
+    def draw_game_over_header(self) -> None:
         self.blit(self.font, "Deploy Failed", RED, 250, 128)
         self.blit(
             self.large_font,
@@ -2600,6 +2608,8 @@ class Game:
         )
         self.blit(self.small_font, f"Best run {self.best_time:05.1f}s", MUTED, 520, 174)
         self.blit(self.small_font, f"Difficulty {self.current_difficulty().label}", ACCENT, 770, 174)
+
+    def draw_game_over_evaluation(self, title: str, description: str, tags: list[str]) -> None:
         self.blit(self.small_font, "Run evaluation", MUTED, 276, 230)
         self.blit(self.font, title, ACCENT, 276, 256)
         wrapped = wrap_text(self.small_font, description, 560)
@@ -2613,6 +2623,7 @@ class Game:
             unlocked_names = [ACHIEVEMENT_DEFS.get(key, key) for key in self.new_achievements[:2]]
             self.blit(self.small_font, "Unlocked: " + " | ".join(unlocked_names), ACCENT, 276, 334)
 
+    def draw_game_over_stats(self) -> None:
         stat_cards = [
             ("Resolved", self.run_resolved_count()),
             ("Insight", int(self.stats["insight"])),
@@ -2626,6 +2637,7 @@ class Game:
             self.blit(self.font, str(value), TEXT, card.x + 18, card.y + 10)
             self.blit(self.small_font, label, MUTED, card.x + 18, card.y + 40)
 
+    def draw_game_over_menu(self) -> None:
         self.blit(self.small_font, "Choose next action", MUTED, 276, 524)
         menu_items = ["Restart", "Achievements", "Main Menu"]
         for index, label in enumerate(menu_items):
