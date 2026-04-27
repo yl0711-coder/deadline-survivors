@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 import unittest
@@ -15,6 +16,7 @@ sys.path.insert(0, str(SRC))
 
 from deadline_survivors.game import ACCENT, ENEMY_TYPES, GREEN, OUTAGE_BOSS, Game
 from deadline_survivors.storage import load_progression
+import deadline_survivors
 
 
 class GameTest(unittest.TestCase):
@@ -40,6 +42,12 @@ class GameTest(unittest.TestCase):
         self.assertEqual("title", self.game.state)
         self.assertEqual(1, self.game.level)
         self.assertEqual(0.0, self.game.time_survived)
+
+    def test_package_version_matches_project_metadata(self) -> None:
+        metadata = (ROOT / "pyproject.toml").read_text()
+        match = re.search(r'^version = "([^"]+)"$', metadata, re.MULTILINE)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), deadline_survivors.__version__)
 
     def test_game_init_uses_bundled_font(self) -> None:
         with patch("pygame.font.SysFont", side_effect=TypeError("broken system font registry")):

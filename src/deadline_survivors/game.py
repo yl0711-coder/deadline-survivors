@@ -1,247 +1,62 @@
 from __future__ import annotations
 
-from array import array
-from dataclasses import dataclass
 from math import atan2, cos, dist, hypot, pi, sin
 from random import choice, random
 import sys
 
 import pygame
 
+from .audio import AudioPlayer
+from .combat import fix_label_for_enemy, insight_value_for_enemy, stat_key_for_enemy
+from .content import (
+    ACHIEVEMENT_DEFS,
+    ACHIEVEMENT_GROUPS,
+    DIFFICULTIES,
+    ENEMY_TYPES,
+    OUTAGE_BOSS,
+    PATCH_THEMES,
+    PHASES,
+    PLAYER_BADGES,
+    PLAYER_SKINS,
+    UPGRADES,
+)
+from .encounters import enemy_spawn_pool
 from .constants import (
     ACCENT,
-    ALERT_COLOR,
     BG,
     BLUE,
-    BUG_COLOR,
     FPS,
     GREEN,
     GRID,
     HEIGHT,
-    MEETING_COLOR,
     MUTED,
     OUTAGE_COLOR,
     PANEL,
-    PLAYER_COLOR,
     PROJECTILE_COLOR,
     PURPLE,
     RED,
-    SCOPE_COLOR,
     TEXT,
     TITLE,
     WIDTH,
     XP_COLOR,
 )
+from .models import (
+    Difficulty,
+    EnemyState,
+    EnemyType,
+    FloatingTextState,
+    HazardState,
+    InsightShardState,
+    ObjectiveState,
+    Phase,
+    PowerupState,
+    ProjectileState,
+    Upgrade,
+)
+from .state_factory import make_enemy_state, make_hazard, make_outage_state, make_projectile
 from .storage import load_best_time, load_progression, save_best_time, save_progression
-
-
-@dataclass
-class EnemyType:
-    name: str
-    radius: float
-    speed: float
-    hp: float
-    damage: float
-    color: tuple[int, int, int]
-    weight: float
-
-
-@dataclass
-class Upgrade:
-    key: str
-    name: str
-    description: str
-
-
-@dataclass
-class Phase:
-    name: str
-    duration: float
-    spawn_base: float
-    pressure: float
-
-
-@dataclass(frozen=True)
-class Difficulty:
-    key: str
-    label: str
-    description: str
-    enemy_hp_mult: float
-    enemy_damage_mult: float
-    spawn_interval_mult: float
-    insight_mult: float
-
-
-# Core enemies stay deliberately simple. Difficulty comes from combinations,
-# phases, crisis events, and map pressure rather than many complex AI classes.
-ENEMY_TYPES = [
-    EnemyType("Bug", 16, 98, 18, 6, BUG_COLOR, 1.0),
-    EnemyType("Meeting", 24, 68, 48, 10, MEETING_COLOR, 0.45),
-    EnemyType("Alert", 12, 148, 12, 8, ALERT_COLOR, 0.55),
-    EnemyType("Scope Creep", 20, 86, 34, 10, SCOPE_COLOR, 0.35),
-]
-
-OUTAGE_BOSS = EnemyType("Outage", 34, 78, 280, 18, OUTAGE_COLOR, 0.0)
-
-# Level-up upgrades are run-long build choices. Temporary rescue effects such
-# as healing, screen clear, and attack haste are handled by powerups instead.
-UPGRADES = [
-    Upgrade("damage", "Patch Notes", "Projectiles deal +6 damage."),
-    Upgrade("speed", "Coffee Rush", "Move 12% faster."),
-    Upgrade("projectiles", "Multicast", "Ship one extra patch."),
-    Upgrade("magnet", "Insight Radar", "Insight shards are pulled from farther away."),
-    Upgrade("shield", "Cache Shield", "Gain +18 max health and recover 10 health."),
-    Upgrade("pierce", "Rollback Thread", "Patches pierce one extra issue."),
-    Upgrade("pulse", "Pager Burst", "Unlock a periodic incident sweep around the player."),
-    Upgrade("recovery", "Quiet Hour", "Recover 2 HP every 6 seconds."),
-    Upgrade("chain", "Code Review", "Patches chain into nearby issues after a hit."),
-    Upgrade("drone", "Pair Programmer", "Add an orbiting helper that ships extra patches."),
-    Upgrade("failsafe", "Rollback Guard", "Low health triggers an emergency guard pulse."),
-    Upgrade("overclock", "Overclocked Build", "Overdrive patches burst into a small blast."),
-]
-
-# Spawn phases keep the first minute approachable, then gradually add pressure.
-PHASES = [
-    Phase("Warmup", 30.0, 1.28, 0.0),
-    Phase("Incident Queue", 42.0, 1.02, 0.22),
-    Phase("Alert Storm", 42.0, 0.84, 0.45),
-    Phase("Deadline Crunch", 9999.0, 0.66, 0.72),
-]
-
-DIFFICULTIES = [
-    Difficulty("casual", "Easy", "Softer pressure, more breathing room.", 0.84, 0.82, 1.2, 1.12),
-    Difficulty("normal", "Medium", "Default pacing for most runs.", 1.0, 1.0, 1.0, 1.0),
-    Difficulty(
-        "crunch",
-        "Hard",
-        "Faster waves and harsher production pain.",
-        1.18,
-        1.16,
-        0.84,
-        0.92,
-    ),
-]
-
-ACHIEVEMENT_DEFS = {
-    "first_overdrive": "First Patch Rush",
-    "first_deploy": "First Deploy",
-    "first_outage": "First Outage",
-    "crunch_survivor": "Hard Survivor",
-    "deploy_addict": "Deploy Addict",
-    "pair_flow": "Pair Flow",
-    "review_cascade": "Review Cascade",
-    "bug_tracker": "Bug Tracker",
-}
-
-ACHIEVEMENT_GROUPS = [
-    (
-        "Milestones",
-        BLUE,
-        "First-time moments that teach the run systems.",
-        [
-            ("first_overdrive", "Reach Overdrive for the first time."),
-            ("first_deploy", "Complete a deploy window for the first time."),
-            ("first_outage", "Defeat a Production Outage."),
-        ],
-    ),
-    (
-        "Challenges",
-        ACCENT,
-        "Single-run goals that push riskier play.",
-        [
-            ("crunch_survivor", "Survive 10 minutes on Hard difficulty."),
-            ("deploy_addict", "Complete 5 deploys in one run."),
-        ],
-    ),
-    (
-        "Build Goals",
-        PURPLE,
-        "Targets that encourage different upgrade routes.",
-        [
-            ("pair_flow", "Reach 2 Pair Programmer helpers."),
-            ("review_cascade", "Chain through 3 targets in one cascade."),
-        ],
-    ),
-    (
-        "Mastery",
-        GREEN,
-        "Long-term progress across many runs.",
-        [
-            ("bug_tracker", "Fix 500 bugs across runs."),
-        ],
-    ),
-]
-
-PLAYER_SKINS = {
-    "default": {
-        "label": "Default",
-        "unlock": None,
-        "body": BLUE,
-        "outline": (52, 116, 205),
-        "skin": PLAYER_COLOR,
-        "hair": (87, 58, 35),
-        "arms": PLAYER_COLOR,
-        "screen": GREEN,
-    },
-    "nightshift": {
-        "label": "Night Shift",
-        "unlock": "first_deploy",
-        "body": (78, 116, 186),
-        "outline": (124, 165, 244),
-        "skin": (244, 206, 132),
-        "hair": (44, 55, 82),
-        "arms": (244, 206, 132),
-        "screen": (111, 214, 255),
-    },
-    "incident": {
-        "label": "Incident Lead",
-        "unlock": "first_outage",
-        "body": (214, 98, 98),
-        "outline": (255, 152, 152),
-        "skin": (252, 214, 154),
-        "hair": (99, 37, 37),
-        "arms": (252, 214, 154),
-        "screen": ACCENT,
-    },
-    "review": {
-        "label": "Code Review",
-        "unlock": "review_cascade",
-        "body": (139, 104, 210),
-        "outline": (207, 177, 255),
-        "skin": (240, 209, 154),
-        "hair": (70, 48, 102),
-        "arms": (240, 209, 154),
-        "screen": PURPLE,
-    },
-    "crunch": {
-        "label": "Hard Mode",
-        "unlock": "crunch_survivor",
-        "body": (104, 151, 113),
-        "outline": (161, 226, 173),
-        "skin": (244, 209, 153),
-        "hair": (46, 71, 38),
-        "arms": (244, 209, 153),
-        "screen": GREEN,
-    },
-}
-
-PLAYER_BADGES = {
-    "none": {"label": "No Badge", "unlock": None, "color": MUTED},
-    "flow": {"label": "Flow Starter", "unlock": "first_overdrive", "color": BLUE},
-    "deployer": {"label": "Deploy Runner", "unlock": "first_deploy", "color": GREEN},
-    "hunter": {"label": "Outage Hunter", "unlock": "first_outage", "color": OUTAGE_COLOR},
-    "reviewer": {"label": "Review Machine", "unlock": "review_cascade", "color": PURPLE},
-    "survivor": {"label": "Hard Survivor", "unlock": "crunch_survivor", "color": ACCENT},
-}
-
-PATCH_THEMES = {
-    "default": {"label": "Default", "unlock": None, "color": PROJECTILE_COLOR},
-    "flow": {"label": "Flow Signal", "unlock": "first_overdrive", "color": BLUE},
-    "deploy": {"label": "Deploy Green", "unlock": "first_deploy", "color": GREEN},
-    "incident": {"label": "Incident Red", "unlock": "first_outage", "color": OUTAGE_COLOR},
-    "review": {"label": "Review Purple", "unlock": "review_cascade", "color": PURPLE},
-    "tracker": {"label": "Tracker Gold", "unlock": "bug_tracker", "color": XP_COLOR},
-}
+from .ui import draw_bar, draw_translucent_rect, wrap_text
+from .ui_screens import draw_menu_option, draw_title_overlay, draw_title_scene
 
 
 def create_font(size: int, *, bold: bool = False) -> pygame.font.Font:
@@ -267,12 +82,10 @@ class Game:
         self.selected_skin = self.progression.get("selected_skin", "default")
         self.selected_badge = self.progression.get("selected_badge", "none")
         self.selected_patch_theme = self.progression.get("selected_patch_theme", "default")
-        self.sound_enabled = False
-        self.sounds: dict[str, pygame.mixer.Sound] = {}
+        self.audio = AudioPlayer()
         self.fire_sound_timer = 0.0
         self.shake_timer = 0.0
         self.shake_strength = 0.0
-        self.init_audio()
         self.menu_return_state = "title"
         self.title_menu_index = 0
         self.game_over_menu_index = 0
@@ -320,7 +133,7 @@ class Game:
         self.crisis_banner_timer = 0.0
         self.hazard_timer = 12.0
         self.objective_timer = 14.0
-        self.objective: dict | None = None
+        self.objective: ObjectiveState | None = None
         self.objective_successes = 0
         self.focus_timer = 0.0
         self.haste_timer = 0.0
@@ -357,12 +170,12 @@ class Game:
         self.death_burst_x = self.player_x
         self.death_burst_y = self.player_y
         self.new_achievements: list[str] = []
-        self.floating_texts: list[dict] = []
-        self.enemies: list[dict] = []
-        self.projectiles: list[dict] = []
-        self.xp_shards: list[dict] = []
-        self.hazards: list[dict] = []
-        self.powerups: list[dict] = []
+        self.floating_texts: list[FloatingTextState] = []
+        self.enemies: list[EnemyState] = []
+        self.projectiles: list[ProjectileState] = []
+        self.xp_shards: list[InsightShardState] = []
+        self.hazards: list[HazardState] = []
+        self.powerups: list[PowerupState] = []
         self.level_choices: list[Upgrade] = []
 
     def start_run(self) -> None:
@@ -439,65 +252,8 @@ class Game:
         self.progression["selected_patch_theme"] = self.selected_patch_theme
         save_progression(self.best_time, self.progression)
 
-    def init_audio(self) -> None:
-        """Create small procedural sounds so the game has feedback without assets."""
-        try:
-            if not pygame.mixer.get_init():
-                pygame.mixer.init()
-        except pygame.error:
-            self.sound_enabled = False
-            self.sounds = {}
-            return
-
-        self.sound_enabled = True
-        self.sounds = {
-            "patch": self.build_tone(760, 45, 0.18, 0.35),
-            "level": self.build_chord((520, 660, 820), 160, 0.22),
-            "pickup": self.build_tone(940, 70, 0.2, 0.22),
-            "hit": self.build_tone(180, 90, 0.24, 0.18),
-            "deploy": self.build_chord((420, 560, 740), 140, 0.18),
-            "crisis": self.build_tone(130, 220, 0.22, 0.05),
-            "fail": self.build_chord((280, 210, 160), 260, 0.22),
-            "pause": self.build_tone(540, 90, 0.18, 0.18),
-        }
-
-    def build_tone(
-        self,
-        frequency: float,
-        duration_ms: int,
-        volume: float,
-        decay: float,
-    ) -> pygame.mixer.Sound:
-        sample_rate = 44100
-        sample_count = int(sample_rate * (duration_ms / 1000))
-        samples = array("h")
-        for index in range(sample_count):
-            t = index / sample_rate
-            envelope = max(0.0, 1.0 - (index / max(1, sample_count)) / max(decay, 0.01))
-            value = int(32767 * volume * envelope * sin(2 * pi * frequency * t))
-            samples.append(value)
-        return pygame.mixer.Sound(buffer=samples.tobytes())
-
-    def build_chord(
-        self,
-        frequencies: tuple[float, ...],
-        duration_ms: int,
-        volume: float,
-    ) -> pygame.mixer.Sound:
-        sample_rate = 44100
-        sample_count = int(sample_rate * (duration_ms / 1000))
-        samples = array("h")
-        for index in range(sample_count):
-            t = index / sample_rate
-            envelope = max(0.0, 1.0 - index / max(1, sample_count))
-            mixed = sum(sin(2 * pi * frequency * t) for frequency in frequencies) / len(frequencies)
-            value = int(32767 * volume * envelope * mixed)
-            samples.append(value)
-        return pygame.mixer.Sound(buffer=samples.tobytes())
-
     def play_sound(self, key: str) -> None:
-        if self.sound_enabled and key in self.sounds:
-            self.sounds[key].play()
+        self.audio.play(key)
 
     def trigger_screen_shake(self, duration: float, strength: float) -> None:
         self.shake_timer = max(self.shake_timer, duration)
@@ -576,78 +332,8 @@ class Game:
                     self.persist_progression_snapshot()
                     return 0
                 if event.type == pygame.KEYDOWN:
-                    if self.state == "achievements":
-                        if event.key == pygame.K_ESCAPE:
-                            self.state = self.menu_return_state
-                            continue
-                        if event.key in (pygame.K_a, pygame.K_BACKSPACE):
-                            self.state = self.menu_return_state
-                        continue
-                    if self.state in {"help", "about"}:
-                        if event.key == pygame.K_ESCAPE:
-                            self.state = "title"
-                            continue
-                        if self.state == "help" and event.key == pygame.K_DOWN:
-                            self.help_scroll += 1
-                        elif self.state == "help" and event.key == pygame.K_UP:
-                            self.help_scroll = max(self.help_scroll - 1, 0)
-                        continue
-                    if event.key == pygame.K_ESCAPE:
-                        self.persist_progression_snapshot()
+                    if self.handle_keydown(event.key):
                         return 0
-                    if self.state in {"playing", "paused"} and event.key == pygame.K_p:
-                        self.state = "paused" if self.state == "playing" else "playing"
-                        self.play_sound("pause")
-                        continue
-                    if self.state == "title":
-                        if event.key == pygame.K_UP:
-                            self.title_menu_index = (self.title_menu_index - 1) % 3
-                            continue
-                        if event.key == pygame.K_DOWN:
-                            self.title_menu_index = (self.title_menu_index + 1) % 3
-                            continue
-                        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
-                            self.activate_title_menu_item()
-                            continue
-                    if self.state in {"title", "game_over"}:
-                        if event.key == pygame.K_a:
-                            self.menu_return_state = self.state
-                            self.state = "achievements"
-                            continue
-                        if event.key == pygame.K_b:
-                            self.cycle_badge()
-                            continue
-                        if event.key == pygame.K_s:
-                            self.cycle_skin()
-                            continue
-                        if event.key == pygame.K_t:
-                            self.cycle_patch_theme()
-                            continue
-                        if event.key in (pygame.K_1, pygame.K_KP1):
-                            self.selected_difficulty = "casual"
-                        elif event.key in (pygame.K_2, pygame.K_KP2):
-                            self.selected_difficulty = "normal"
-                        elif event.key in (pygame.K_3, pygame.K_KP3):
-                            self.selected_difficulty = "crunch"
-                    if self.state == "game_over":
-                        if event.key == pygame.K_LEFT:
-                            self.game_over_menu_index = (self.game_over_menu_index - 1) % 3
-                            continue
-                        if event.key == pygame.K_RIGHT:
-                            self.game_over_menu_index = (self.game_over_menu_index + 1) % 3
-                            continue
-                        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                            self.activate_game_over_menu_item()
-                            continue
-                    if self.state == "game_over" and event.key == pygame.K_SPACE:
-                        self.start_run()
-                    elif self.state == "level_up":
-                        if event.key in (pygame.K_1, pygame.K_KP1):
-                            self.pick_choice(0)
-                        elif event.key in (pygame.K_2, pygame.K_KP2):
-                            self.pick_choice(1)
-                        elif event.key in (pygame.K_3, pygame.K_KP3):
-                            self.pick_choice(2)
 
             if self.state == "playing":
                 self.update(dt)
@@ -656,6 +342,101 @@ class Game:
 
             self.draw()
             pygame.display.flip()
+
+    def handle_keydown(self, key: int) -> bool:
+        if self.state == "achievements":
+            self.handle_achievements_input(key)
+            return False
+        if self.state in {"help", "about"}:
+            self.handle_info_input(key)
+            return False
+        if key == pygame.K_ESCAPE:
+            self.persist_progression_snapshot()
+            return True
+        if self.state in {"playing", "paused"} and key == pygame.K_p:
+            self.state = "paused" if self.state == "playing" else "playing"
+            self.play_sound("pause")
+            return False
+        if self.state == "title" and self.handle_title_input(key):
+            return False
+        if self.state in {"title", "game_over"} and self.handle_shared_menu_input(key):
+            return False
+        if self.state == "game_over" and self.handle_game_over_input(key):
+            return False
+        if self.state == "level_up":
+            self.handle_level_up_input(key)
+        return False
+
+    def handle_achievements_input(self, key: int) -> None:
+        if key == pygame.K_ESCAPE or key in (pygame.K_a, pygame.K_BACKSPACE):
+            self.state = self.menu_return_state
+
+    def handle_info_input(self, key: int) -> None:
+        if key == pygame.K_ESCAPE:
+            self.state = "title"
+        elif self.state == "help" and key == pygame.K_DOWN:
+            self.help_scroll += 1
+        elif self.state == "help" and key == pygame.K_UP:
+            self.help_scroll = max(self.help_scroll - 1, 0)
+
+    def handle_title_input(self, key: int) -> bool:
+        if key == pygame.K_UP:
+            self.title_menu_index = (self.title_menu_index - 1) % 3
+            return True
+        if key == pygame.K_DOWN:
+            self.title_menu_index = (self.title_menu_index + 1) % 3
+            return True
+        if key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+            self.activate_title_menu_item()
+            return True
+        return False
+
+    def handle_shared_menu_input(self, key: int) -> bool:
+        if key == pygame.K_a:
+            self.menu_return_state = self.state
+            self.state = "achievements"
+            return True
+        if key == pygame.K_b:
+            self.cycle_badge()
+            return True
+        if key == pygame.K_s:
+            self.cycle_skin()
+            return True
+        if key == pygame.K_t:
+            self.cycle_patch_theme()
+            return True
+        if key in (pygame.K_1, pygame.K_KP1):
+            self.selected_difficulty = "casual"
+        elif key in (pygame.K_2, pygame.K_KP2):
+            self.selected_difficulty = "normal"
+        elif key in (pygame.K_3, pygame.K_KP3):
+            self.selected_difficulty = "crunch"
+        else:
+            return False
+        return True
+
+    def handle_game_over_input(self, key: int) -> bool:
+        if key == pygame.K_LEFT:
+            self.game_over_menu_index = (self.game_over_menu_index - 1) % 3
+            return True
+        if key == pygame.K_RIGHT:
+            self.game_over_menu_index = (self.game_over_menu_index + 1) % 3
+            return True
+        if key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            self.activate_game_over_menu_item()
+            return True
+        if key == pygame.K_SPACE:
+            self.start_run()
+            return True
+        return False
+
+    def handle_level_up_input(self, key: int) -> None:
+        if key in (pygame.K_1, pygame.K_KP1):
+            self.pick_choice(0)
+        elif key in (pygame.K_2, pygame.K_KP2):
+            self.pick_choice(1)
+        elif key in (pygame.K_3, pygame.K_KP3):
+            self.pick_choice(2)
 
     def pick_choice(self, index: int) -> None:
         if 0 <= index < len(self.level_choices):
@@ -842,7 +623,7 @@ class Game:
         }
         self.spawn_floating_text(x - 42, y - 76, "Deploy window", GREEN)
 
-    def complete_objective(self, objective: dict) -> None:
+    def complete_objective(self, objective: ObjectiveState) -> None:
         reward = objective["reward"]
         self.xp += reward
         self.stats["insight"] += reward
@@ -902,19 +683,19 @@ class Game:
             )
             shot_angle = atan2(target["y"] - origin_y, target["x"] - origin_x)
             self.projectiles.append(
-                {
-                    "x": origin_x,
-                    "y": origin_y,
-                    "vx": cos(shot_angle) * self.projectile_speed * 0.88,
-                    "vy": sin(shot_angle) * self.projectile_speed * 0.88,
-                    "damage": self.projectile_damage * damage_multiplier,
-                    "radius": max(4, self.projectile_radius() - 1),
-                    "color": BLUE,
-                    "pierce": max(0, self.pierce - 1),
-                    "source": "drone",
-                    "chain": max(0, self.chain_count - 1),
-                    "chain_range": self.chain_range,
-                }
+                make_projectile(
+                    origin_x,
+                    origin_y,
+                    cos(shot_angle) * self.projectile_speed * 0.88,
+                    sin(shot_angle) * self.projectile_speed * 0.88,
+                    self.projectile_damage * damage_multiplier,
+                    max(4, self.projectile_radius() - 1),
+                    BLUE,
+                    max(0, self.pierce - 1),
+                    "drone",
+                    max(0, self.chain_count - 1),
+                    self.chain_range,
+                )
             )
         if self.fire_sound_timer <= 0:
             self.play_sound("patch")
@@ -990,25 +771,22 @@ class Game:
         elite_multiplier = 2.2 if elite else 1.0
         difficulty = self.current_difficulty()
         self.enemies.append(
-            {
-                "type": enemy_type,
-                "x": x,
-                "y": y,
-                "hp": (
+            make_enemy_state(
+                enemy_type,
+                x,
+                y,
+                (
                     enemy_type.hp
                     + level_pressure
                     + self.time_survived * (0.35 + self.current_phase().pressure * 0.22)
                 )
                 * difficulty.enemy_hp_mult
                 * elite_multiplier,
-                "damage": enemy_type.damage * difficulty.enemy_damage_mult,
-                "dash_timer": 0.0,
-                "dash_cooldown": 1.4 + random() * 0.9,
-                "dash_vx": 0.0,
-                "dash_vy": 0.0,
-                "split_depth": 1 if enemy_type.name == "Scope Creep" else 0,
-                "elite": elite,
-            }
+                enemy_type.damage * difficulty.enemy_damage_mult,
+                1.4 + random() * 0.9,
+                1 if enemy_type.name == "Scope Creep" else 0,
+                elite,
+            )
         )
 
     def update_crisis_director(self, dt: float) -> None:
@@ -1070,24 +848,13 @@ class Game:
             + self.time_survived * 0.95
         ) * difficulty.enemy_hp_mult
         self.enemies.append(
-            {
-                "type": OUTAGE_BOSS,
-                "x": x,
-                "y": y,
-                "hp": hp,
-                "max_hp": hp,
-                "damage": OUTAGE_BOSS.damage * difficulty.enemy_damage_mult,
-                "dash_timer": 0.0,
-                "dash_cooldown": 99.0,
-                "dash_vx": 0.0,
-                "dash_vy": 0.0,
-                "split_depth": 0,
-                "elite": True,
-                "boss": True,
-                "pulse_timer": 2.4,
-                "summon_timer": 4.8,
-                "rage": False,
-            }
+            make_outage_state(
+                OUTAGE_BOSS,
+                x,
+                y,
+                hp,
+                OUTAGE_BOSS.damage * difficulty.enemy_damage_mult,
+            )
         )
         self.crisis_name = "Production Outage"
         self.crisis_banner_timer = 2.8
@@ -1142,48 +909,11 @@ class Game:
         y = max(radius, min(HEIGHT - radius, self.player_y + lead_y + jitter_y))
         damage = 12.0 + min(12.0, max(0, self.level - 10) * 1.0)
         self.hazards.append(
-            {
-                "x": x,
-                "y": y,
-                "radius": radius,
-                "warn": 1.05,
-                "duration": 1.65,
-                "damage": damage,
-                "hit": False,
-            }
+            make_hazard(x, y, radius, 1.05, 1.65, damage)
         )
 
     def pick_enemy_type(self) -> EnemyType:
-        available = []
-        phase = self.current_phase()
-        for enemy_type in ENEMY_TYPES:
-            weight = enemy_type.weight
-            if phase.name == "Warmup":
-                if enemy_type.name == "Meeting":
-                    weight *= 0.12
-                if enemy_type.name == "Alert":
-                    weight *= 0.35
-                if enemy_type.name == "Scope Creep":
-                    weight *= 0.05
-            elif phase.name == "Incident Queue":
-                if enemy_type.name == "Meeting":
-                    weight *= 0.6
-                if enemy_type.name == "Scope Creep":
-                    weight *= 0.22
-            elif phase.name == "Alert Storm":
-                if enemy_type.name == "Alert":
-                    weight *= 1.28
-                if enemy_type.name == "Meeting":
-                    weight *= 0.82
-                if enemy_type.name == "Scope Creep":
-                    weight *= 0.6
-            elif phase.name == "Deadline Crunch":
-                if enemy_type.name == "Meeting":
-                    weight *= 1.12
-                if enemy_type.name == "Scope Creep":
-                    weight *= 1.34
-            available.extend([enemy_type] * max(1, int(weight * 10)))
-        return choice(available)
+        return choice(enemy_spawn_pool(ENEMY_TYPES, self.current_phase().name))
 
     def fire_projectiles(self) -> None:
         if not self.enemies:
@@ -1198,21 +928,21 @@ class Game:
         for target in targets:
             angle = atan2(target["y"] - self.player_y, target["x"] - self.player_x)
             self.projectiles.append(
-                {
-                    "x": self.player_x,
-                    "y": self.player_y,
-                    "vx": cos(angle) * self.projectile_speed,
-                    "vy": sin(angle) * self.projectile_speed,
-                    "damage": self.projectile_damage
+                make_projectile(
+                    self.player_x,
+                    self.player_y,
+                    cos(angle) * self.projectile_speed,
+                    sin(angle) * self.projectile_speed,
+                    self.projectile_damage
                     * damage_multiplier
                     * self.momentum_damage_multiplier(),
-                    "radius": self.projectile_radius(),
-                    "color": self.projectile_color(),
-                    "pierce": self.pierce,
-                    "source": "player",
-                    "chain": self.chain_count,
-                    "chain_range": self.chain_range,
-                }
+                    self.projectile_radius(),
+                    self.projectile_color(),
+                    self.pierce,
+                    "player",
+                    self.chain_count,
+                    self.chain_range,
+                )
             )
         if self.fire_sound_timer <= 0:
             self.play_sound("patch")
@@ -1298,9 +1028,9 @@ class Game:
 
     def try_chain_projectile(
         self,
-        projectile: dict,
-        source_enemy: dict,
-        spawned_projectiles: list[dict],
+        projectile: ProjectileState,
+        source_enemy: EnemyState,
+        spawned_projectiles: list[ProjectileState],
     ) -> None:
         if projectile.get("chain", 0) <= 0:
             return
@@ -1315,24 +1045,24 @@ class Game:
         self.max_chain_hits = max(self.max_chain_hits, chain_hits)
         angle = atan2(target["y"] - source_enemy["y"], target["x"] - source_enemy["x"])
         spawned_projectiles.append(
-            {
-                "x": source_enemy["x"],
-                "y": source_enemy["y"],
-                "vx": cos(angle) * self.projectile_speed * 1.04,
-                "vy": sin(angle) * self.projectile_speed * 1.04,
-                "damage": projectile["damage"] * 0.82,
-                "radius": max(4, projectile["radius"] - 1),
-                "color": PURPLE,
-                "pierce": 0,
-                "source": "chain",
-                "chain": max(0, remaining_chain),
-                "chain_hits": chain_hits,
-                "chain_range": projectile.get("chain_range", self.chain_range),
-            }
+            make_projectile(
+                source_enemy["x"],
+                source_enemy["y"],
+                cos(angle) * self.projectile_speed * 1.04,
+                sin(angle) * self.projectile_speed * 1.04,
+                projectile["damage"] * 0.82,
+                max(4, projectile["radius"] - 1),
+                PURPLE,
+                0,
+                "chain",
+                max(0, remaining_chain),
+                projectile.get("chain_range", self.chain_range),
+                chain_hits,
+            )
         )
         self.spawn_floating_text(source_enemy["x"], source_enemy["y"] - 26, "review", PURPLE)
 
-    def find_chain_target(self, source_enemy: dict, max_range: float) -> dict | None:
+    def find_chain_target(self, source_enemy: EnemyState, max_range: float) -> EnemyState | None:
         candidates = [
             enemy
             for enemy in self.enemies
@@ -1346,7 +1076,11 @@ class Game:
             key=lambda enemy: dist((source_enemy["x"], source_enemy["y"]), (enemy["x"], enemy["y"])),
         )
 
-    def trigger_overclock_burst(self, projectile: dict, source_enemy: dict) -> None:
+    def trigger_overclock_burst(
+        self,
+        projectile: ProjectileState,
+        source_enemy: EnemyState,
+    ) -> None:
         if self.overclock_level <= 0 or self.momentum_tier != "Overdrive":
             return
         radius = 42 + self.overclock_level * 14
@@ -1397,7 +1131,7 @@ class Game:
 
     def resolve_enemy(
         self,
-        enemy: dict,
+        enemy: EnemyState,
         insight_multiplier: float = 1.0,
         allow_powerup_drop: bool = True,
         allow_split: bool = True,
@@ -1411,20 +1145,11 @@ class Game:
         if allow_split and enemy["type"].name == "Scope Creep" and enemy.get("split_depth", 0) > 0:
             self.spawn_scope_split(enemy)
 
-    def enemy_insight_value(self, enemy: dict) -> float:
+    def enemy_insight_value(self, enemy: EnemyState) -> float:
         """Return the base insight reward for resolving each enemy type."""
-        enemy_name = enemy["type"].name
-        if enemy_name == "Alert":
-            return 4.0
-        if enemy_name == "Meeting":
-            return 6.0
-        if enemy_name == "Scope Creep":
-            return 7.0
-        if enemy_name == "Outage":
-            return 24.0
-        return 3.0
+        return insight_value_for_enemy(enemy["type"].name)
 
-    def drop_enemy_insight(self, enemy: dict, multiplier: float = 1.0) -> None:
+    def drop_enemy_insight(self, enemy: EnemyState, multiplier: float = 1.0) -> None:
         """Drop an insight shard at an enemy position."""
         self.xp_shards.append(
             {
@@ -1464,38 +1189,22 @@ class Game:
                 ACCENT,
             )
 
-    def spawn_fix_text(self, enemy: dict) -> None:
-        labels = {
-            "Bug": "bug fixed",
-            "Meeting": "meeting dodged",
-            "Alert": "alert silenced",
-            "Scope Creep": "scope trimmed",
-            "Bugling": "tiny bug fixed",
-            "Outage": "outage resolved",
-        }
+    def spawn_fix_text(self, enemy: EnemyState) -> None:
         self.spawn_floating_text(
             enemy["x"] - enemy["type"].radius,
             enemy["y"] - enemy["type"].radius - 10,
-            labels.get(enemy["type"].name, "issue fixed"),
+            fix_label_for_enemy(enemy["type"].name),
             XP_COLOR,
         )
 
-    def track_enemy_resolution(self, enemy: dict) -> None:
-        stat_map = {
-            "Bug": "bugs_fixed",
-            "Bugling": "bugs_fixed",
-            "Meeting": "meetings_dodged",
-            "Alert": "alerts_silenced",
-            "Scope Creep": "scope_trimmed",
-            "Outage": "outages_resolved",
-        }
-        stat_key = stat_map.get(enemy["type"].name)
+    def track_enemy_resolution(self, enemy: EnemyState) -> None:
+        stat_key = stat_key_for_enemy(enemy["type"].name)
         if stat_key is not None:
             self.stats[stat_key] += 1
         if enemy["type"].name == "Outage":
             self.unlock_achievement("first_outage")
 
-    def maybe_drop_powerup(self, enemy: dict) -> None:
+    def maybe_drop_powerup(self, enemy: EnemyState) -> None:
         """Drop short-term rescue tools without polluting level-up choices."""
         if enemy["type"].name == "Outage":
             self.spawn_powerup(choice(["heal", "bomb", "haste"]), enemy["x"], enemy["y"])
@@ -1538,7 +1247,7 @@ class Game:
             }
         )
 
-    def advance_enemy(self, enemy: dict, dt: float) -> None:
+    def advance_enemy(self, enemy: EnemyState, dt: float) -> None:
         enemy_type = enemy["type"]
         if enemy_type.name == "Outage":
             self.advance_outage(enemy, dt)
@@ -1573,7 +1282,7 @@ class Game:
         enemy["x"] += cos(angle) * enemy_type.speed * dt
         enemy["y"] += sin(angle) * enemy_type.speed * dt
 
-    def advance_outage(self, enemy: dict, dt: float) -> None:
+    def advance_outage(self, enemy: EnemyState, dt: float) -> None:
         enemy_type = enemy["type"]
         hp_ratio = enemy["hp"] / max(1.0, enemy.get("max_hp", enemy["hp"]))
         if hp_ratio <= 0.5 and not enemy["rage"]:
@@ -1600,7 +1309,7 @@ class Game:
             self.summon_outage_support(enemy)
             enemy["summon_timer"] = 3.1 if enemy["rage"] else 5.0
 
-    def emit_outage_wave(self, enemy: dict) -> None:
+    def emit_outage_wave(self, enemy: EnemyState) -> None:
         self.trigger_screen_shake(0.1, 2.6)
         self.spawn_floating_text(enemy["x"] - 18, enemy["y"] - 52, "Incident wave", OUTAGE_COLOR)
         for index in range(6):
@@ -1609,18 +1318,17 @@ class Game:
             x = max(radius, min(WIDTH - radius, enemy["x"] + cos(angle) * 92))
             y = max(radius, min(HEIGHT - radius, enemy["y"] + sin(angle) * 92))
             self.hazards.append(
-                {
-                    "x": x,
-                    "y": y,
-                    "radius": radius,
-                    "warn": 0.85,
-                    "duration": 1.2,
-                    "damage": 12.0 if not enemy["rage"] else 16.0,
-                    "hit": False,
-                }
+                make_hazard(
+                    x,
+                    y,
+                    radius,
+                    0.85,
+                    1.2,
+                    12.0 if not enemy["rage"] else 16.0,
+                )
             )
 
-    def summon_outage_support(self, enemy: dict) -> None:
+    def summon_outage_support(self, enemy: EnemyState) -> None:
         alert = next(enemy_type for enemy_type in ENEMY_TYPES if enemy_type.name == "Alert")
         bug = next(enemy_type for enemy_type in ENEMY_TYPES if enemy_type.name == "Bug")
         self.spawn_floating_text(enemy["x"] - 26, enemy["y"] - 28, "Escalation", ACCENT)
@@ -1632,24 +1340,21 @@ class Game:
             return 1.0
         return max(0.45, 1.0 - (self.projectile_count - 1) * 0.18)
 
-    def spawn_scope_split(self, enemy: dict) -> None:
+    def spawn_scope_split(self, enemy: EnemyState) -> None:
         for offset in (-16, 16):
             self.enemies.append(
-                {
-                    "type": EnemyType("Bugling", 12, 122, 16, 8, (218, 170, 255), 0.0),
-                    "x": enemy["x"] + offset,
-                    "y": enemy["y"] - offset * 0.25,
-                    "hp": (
+                make_enemy_state(
+                    EnemyType("Bugling", 12, 122, 16, 8, (218, 170, 255), 0.0),
+                    enemy["x"] + offset,
+                    enemy["y"] - offset * 0.25,
+                    (
                         16 + self.time_survived * 0.18
                     ) * self.current_difficulty().enemy_hp_mult,
-                    "damage": 8 * self.current_difficulty().enemy_damage_mult,
-                    "dash_timer": 0.0,
-                    "dash_cooldown": 99.0,
-                    "dash_vx": 0.0,
-                    "dash_vy": 0.0,
-                    "split_depth": 0,
-                    "elite": False,
-                }
+                    8 * self.current_difficulty().enemy_damage_mult,
+                    99.0,
+                    0,
+                    False,
+                )
             )
 
     def update_xp(self, dt: float) -> None:
@@ -2181,7 +1886,7 @@ class Game:
             self.draw_floating_texts()
 
         if self.state == "title":
-            self.draw_title_overlay()
+            draw_title_overlay(self)
         elif self.state == "help":
             self.draw_help_overlay()
         elif self.state == "about":
@@ -2333,7 +2038,7 @@ class Game:
     def draw_hud(self) -> None:
         """Draw a compact translucent HUD so gameplay remains visible underneath."""
         panel = pygame.Rect(18, 18, 372, 144)
-        self.draw_translucent_rect(panel, PANEL, 150, 16)
+        draw_translucent_rect(self.screen, panel, PANEL, 150, 16)
         pygame.draw.rect(self.screen, GRID, panel, 1, border_radius=16)
 
         self.blit(self.font, f"{self.current_phase().name}", TEXT, 28, 24)
@@ -2348,12 +2053,14 @@ class Game:
         outage = next((enemy for enemy in self.enemies if enemy["type"].name == "Outage"), None)
         if outage is not None:
             ratio = max(0.0, min(1.0, outage["hp"] / outage.get("max_hp", outage["hp"])))
-            self.draw_bar(500, 58, 260, 12, ratio, OUTAGE_COLOR, "Outage")
+            draw_bar(self.screen, self.small_font, 500, 58, 260, 12, ratio, OUTAGE_COLOR, "Outage")
 
         hp_ratio = max(0.0, self.player_hp / self.player_max_hp)
         xp_ratio = max(0.0, min(1.0, self.xp / self.xp_to_level))
 
-        self.draw_bar(
+        draw_bar(
+            self.screen,
+            self.small_font,
             28,
             106,
             210,
@@ -2362,8 +2069,28 @@ class Game:
             RED,
             f"HP {int(self.player_hp)}",
         )
-        self.draw_bar(28, 122, 210, 10, xp_ratio, BLUE, f"Insight {int(self.xp)}/{int(self.xp_to_level)}")
-        self.draw_bar(28, 138, 210, 10, self.momentum, GREEN, f"{self.momentum_tier}")
+        draw_bar(
+            self.screen,
+            self.small_font,
+            28,
+            122,
+            210,
+            10,
+            xp_ratio,
+            BLUE,
+            f"Insight {int(self.xp)}/{int(self.xp_to_level)}",
+        )
+        draw_bar(
+            self.screen,
+            self.small_font,
+            28,
+            138,
+            210,
+            10,
+            self.momentum,
+            GREEN,
+            f"{self.momentum_tier}",
+        )
 
         status_y = 24
         self.blit(self.small_font, "P pause  |  Esc quit", MUTED, 930, status_y)
@@ -2423,102 +2150,6 @@ class Game:
             pygame.draw.line(surface, (*ACCENT, 125), start, end, 3)
         pygame.draw.circle(surface, (*TEXT, 200), (x, y), 8)
         self.screen.blit(surface, (0, 0))
-
-    def draw_translucent_rect(
-        self,
-        rect: pygame.Rect,
-        color: tuple[int, int, int],
-        alpha: int,
-        border_radius: int,
-    ) -> None:
-        """Draw a rounded translucent rectangle without changing global alpha."""
-        surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-        pygame.draw.rect(surface, (*color, alpha), surface.get_rect(), border_radius=border_radius)
-        self.screen.blit(surface, rect.topleft)
-
-    def draw_bar(
-        self,
-        x: int,
-        y: int,
-        width: int,
-        height: int,
-        ratio: float,
-        color: tuple[int, int, int],
-        label: str,
-    ) -> None:
-        pygame.draw.rect(self.screen, GRID, (x, y, width, height), border_radius=999)
-        pygame.draw.rect(self.screen, color, (x, y, width * ratio, height), border_radius=999)
-        self.blit(self.small_font, label, TEXT, x + width + 12, y - 2)
-
-    def draw_title_overlay(self) -> None:
-        self.draw_overlay_panel(170, 92, 940, 548)
-        difficulty = self.current_difficulty()
-        self.blit(self.large_font, "Deadline Survivors", TEXT, 238, 126)
-        self.blit(self.small_font, "Ship patches. Dodge pressure. Survive the deadline.", MUTED, 242, 190)
-
-        self.draw_title_scene(238, 228, 460, 284)
-
-        menu_rect = pygame.Rect(738, 238, 280, 236)
-        pygame.draw.rect(self.screen, BG, menu_rect, border_radius=18)
-        pygame.draw.rect(self.screen, GRID, menu_rect, 1, border_radius=18)
-        self.blit(self.font, "Menu", ACCENT, 768, 266)
-        menu_items = ["Start Game", "How To Play", "Game Story"]
-        for index, label in enumerate(menu_items):
-            self.draw_menu_option(768, 318 + index * 48, label, index == self.title_menu_index)
-
-        self.blit(self.small_font, "Up / Down select", MUTED, 768, 482)
-        self.blit(self.small_font, "Enter / Space confirm", MUTED, 768, 506)
-
-        self.draw_title_status_bar(238, 534, difficulty)
-
-    def draw_title_scene(self, x: int, y: int, width: int, height: int) -> None:
-        """Draw a small readable preview of the game's premise on the title screen."""
-        scene = pygame.Rect(x, y, width, height)
-        pygame.draw.rect(self.screen, BG, scene, border_radius=18)
-        pygame.draw.rect(self.screen, GRID, scene, 1, border_radius=18)
-        self.blit(self.small_font, "Developer vs production pressure", MUTED, x + 28, y + 22)
-
-        floor_y = y + height - 56
-        pygame.draw.line(self.screen, GRID, (x + 38, floor_y), (x + width - 38, floor_y), 2)
-        developer_x = x + width // 2
-        developer_y = y + int(height * 0.58)
-        pygame.draw.circle(self.screen, PLAYER_COLOR, (developer_x, developer_y - 50), 22)
-        pygame.draw.rect(self.screen, BLUE, (developer_x - 24, developer_y - 26, 48, 56), border_radius=12)
-        pygame.draw.rect(self.screen, PANEL, (developer_x - 38, developer_y - 2, 76, 40), border_radius=8)
-        pygame.draw.rect(self.screen, GREEN, (developer_x - 30, developer_y + 5, 60, 24), 2, border_radius=5)
-        self.blit(self.small_font, "</>", GREEN, developer_x - 18, developer_y + 3)
-
-        enemies = [
-            (x + int(width * 0.19), y + int(height * 0.54), BUG_COLOR, "Bug"),
-            (x + int(width * 0.79), y + int(height * 0.45), ALERT_COLOR, "Alert"),
-            (x + int(width * 0.84), y + int(height * 0.78), SCOPE_COLOR, "Scope"),
-            (x + int(width * 0.27), y + int(height * 0.78), MEETING_COLOR, "Meeting"),
-        ]
-        for enemy_x, enemy_y, color, label in enemies:
-            pygame.draw.circle(self.screen, color, (enemy_x, enemy_y), 20)
-            pygame.draw.circle(self.screen, TEXT, (enemy_x, enemy_y), 5, 2)
-            self.blit(self.small_font, label, MUTED, enemy_x - 34, enemy_y + 30)
-
-        for offset in (0, 38, 76):
-            pygame.draw.circle(self.screen, self.current_patch_theme()["color"], (developer_x + 58 + offset, developer_y - 8), 6)
-
-    def draw_title_status_bar(self, x: int, y: int, difficulty: Difficulty) -> None:
-        rect = pygame.Rect(x, y, 780, 76)
-        pygame.draw.rect(self.screen, BG, rect, border_radius=14)
-        pygame.draw.rect(self.screen, GRID, rect, 1, border_radius=14)
-        self.blit(self.small_font, f"Difficulty: {difficulty.label}", ACCENT, x + 22, y + 16)
-        self.blit(self.small_font, f"Best: {self.best_time:05.1f}s", MUTED, x + 220, y + 16)
-        self.blit(self.small_font, "1 Easy   2 Medium   3 Hard", MUTED, x + 386, y + 16)
-        self.blit(self.small_font, "A achievements   S/B/T cosmetics", MUTED, x + 22, y + 46)
-
-    def draw_menu_option(self, x: int, y: int, label: str, selected: bool) -> None:
-        rect = pygame.Rect(x, y, 230, 32)
-        if selected:
-            pygame.draw.rect(self.screen, PANEL, rect, border_radius=8)
-            pygame.draw.rect(self.screen, ACCENT, rect, 2, border_radius=8)
-        marker = ">" if selected else " "
-        self.blit(self.small_font, marker, ACCENT if selected else MUTED, x + 12, y + 7)
-        self.blit(self.small_font, label, TEXT if selected else MUTED, x + 42, y + 7)
 
     def draw_help_overlay(self) -> None:
         """Draw the scrollable title-screen help page."""
@@ -2601,7 +2232,7 @@ class Game:
         for index, line in enumerate(story_lines):
             self.blit(self.small_font, line, TEXT, 240, 222 + index * 30)
 
-        self.draw_title_scene(440, 360, 390, 220)
+        draw_title_scene(self, 440, 360, 390, 220)
 
     def draw_achievements_overlay(self) -> None:
         self.draw_overlay_panel(150, 60, 980, 610)
@@ -2796,7 +2427,7 @@ class Game:
         self.blit(self.small_font, "Choose next action", MUTED, 276, 524)
         menu_items = ["Restart", "Achievements", "Main Menu"]
         for index, label in enumerate(menu_items):
-            self.draw_menu_option(276 + index * 230, 552, label, index == self.game_over_menu_index)
+            draw_menu_option(self, 276 + index * 230, 552, label, index == self.game_over_menu_index)
         self.blit(self.small_font, "Left / Right select   Enter confirm   Space restart   1/2/3 difficulty", MUTED, 276, 608)
 
     def draw_overlay_panel(self, x: int, y: int, width: int, height: int) -> None:
@@ -2830,24 +2461,6 @@ class Game:
         y: int,
     ) -> None:
         self.screen.blit(font.render(text, True, color), (x, y))
-
-
-def wrap_text(font: pygame.font.Font, text: str, max_width: int) -> list[str]:
-    words = text.split()
-    lines: list[str] = []
-    current = ""
-    for word in words:
-        trial = f"{current} {word}".strip()
-        if font.size(trial)[0] <= max_width:
-            current = trial
-        else:
-            if current:
-                lines.append(current)
-            current = word
-    if current:
-        lines.append(current)
-    return lines
-
 
 def main() -> int:
     try:

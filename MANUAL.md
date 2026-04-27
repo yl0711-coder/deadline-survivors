@@ -267,18 +267,32 @@ Elite enemies can appear later in a run. They are shown with an orange outline a
 
 ## Gameplay Architecture
 
-Most gameplay state lives in `Game` because this is still a compact single-file prototype.
-The current separation is by update and draw responsibility:
+`Game` still owns the main loop and most runtime state, but supporting modules now hold stable data, factories, pure rules, storage, audio, and reusable UI helpers.
+The current separation is:
+
+- `content.py`: tunable game content such as enemies, upgrades, phases, difficulties, achievements, skins, badges, and patch themes
+- `models.py`: dataclasses and `TypedDict` shapes for runtime dictionaries
+- `state_factory.py`: factory functions for enemies, projectiles, hazards, and related runtime state
+- `combat.py`: pure combat reward mappings such as insight value, fix labels, and stat keys
+- `encounters.py`: pure encounter selection helpers such as enemy spawn pools
+- `audio.py`: procedural sound setup and playback
+- `ui.py`: reusable drawing helpers
+- `ui_screens.py`: extracted screen-specific drawing helpers
+- `storage.py`: local save validation and persistence
+- `game.py`: main loop, input dispatch, runtime updates, collision handling, and remaining screen drawing
+
+The runtime rules are:
 
 - update methods mutate gameplay state, timers, collisions, and rewards
-- draw methods render the current state without changing gameplay decisions
+- draw helpers render the current state without changing gameplay decisions
 - title, help, about, achievements, playing, paused, level-up, and game-over are explicit screen states
 - level-up upgrades are run-long build changes
 - powerups are temporary or immediate effects
 - deploy windows and momentum are optional risk-reward systems
 - game-over effects use a small update path so short failure animations can finish after gameplay stops
 
-If the project grows, the first worthwhile refactor would be moving enemies, powerups, and objectives into small modules while keeping the public game loop unchanged.
+Future refactors should keep gameplay changes separate from structural changes.
+Move one responsibility at a time, keep existing tests green, and add tests before extracting higher-risk systems such as collision, enemy movement, or boss behavior.
 
 ## Source Layout
 
@@ -293,8 +307,16 @@ deadline-survivors/
 ├── pyproject.toml
 └── src/deadline_survivors/
     ├── __init__.py
+    ├── audio.py
+    ├── combat.py
     ├── constants.py
+    ├── content.py
+    ├── encounters.py
     ├── game.py
+    ├── models.py
+    ├── state_factory.py
+    ├── ui.py
+    ├── ui_screens.py
     └── storage.py
 ```
 
@@ -363,11 +385,31 @@ Current coverage includes:
 - momentum reward scaling
 - powerup pickup and effects
 - Multicast diminishing returns
+- input dispatch for title, help, achievements, game-over, pause, and level-up states
+- package version metadata sync
+
+Run lint locally with:
+
+```bash
+./.venv/bin/ruff check src tests run_game.py
+```
+
+Run syntax checks locally with:
+
+```bash
+python3 -m compileall src run_game.py tests
+```
 
 Run tests locally with:
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python -m unittest discover -s tests
+```
+
+Run the headless startup smoke test with:
+
+```bash
+SDL_VIDEODRIVER=dummy ./.venv/bin/python run_game.py --smoke-test
 ```
 
 ## Save Data

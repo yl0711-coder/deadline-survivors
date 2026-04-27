@@ -14,3 +14,21 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint.per-file-ignores]
+"run_game.py" = ["E402"]
+"tests/test_game.py" = ["E402"]
+"tests/test_input.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+files = [
+  "src/deadline_survivors/combat.py",
+  "src/deadline_survivors/encounters.py",
+  "src/deadline_survivors/state_factory.py",
+]

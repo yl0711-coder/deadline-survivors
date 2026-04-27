@@ -30,6 +30,12 @@ jobs:
       - name: Syntax check
         run: python -m compileall src run_game.py
 
+      - name: Lint
+        run: ruff check src tests run_game.py
+
+      - name: Type check
+        run: mypy
+
       - name: Run headless tests
         env:
           SDL_VIDEODRIVER: dummy
