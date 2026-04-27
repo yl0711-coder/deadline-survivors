@@ -814,6 +814,24 @@ class Game:
         elite: bool | None = None,
         near_player: bool = False,
     ) -> None:
+        elite = self.should_spawn_elite(elite)
+        x, y = self.enemy_spawn_position(near_player)
+        hp = self.enemy_spawn_hp(enemy_type, elite)
+        damage = enemy_type.damage * self.current_difficulty().enemy_damage_mult
+        self.enemies.append(
+            make_enemy_state(
+                enemy_type,
+                x,
+                y,
+                hp,
+                damage,
+                1.4 + random() * 0.9,
+                self.enemy_split_depth(enemy_type),
+                elite,
+            )
+        )
+
+    def should_spawn_elite(self, elite: bool | None) -> bool:
         if elite is None:
             elite_chance = 0.0
             if self.level >= 8:
@@ -822,8 +840,10 @@ class Game:
                 elite_chance += 0.05
             if self.current_phase().name == "Deadline Crunch":
                 elite_chance += 0.04
-            elite = random() < elite_chance
+            return random() < elite_chance
+        return elite
 
+    def enemy_spawn_position(self, near_player: bool) -> tuple[float, float]:
         if near_player:
             angle = random() * pi * 2
             distance_from_player = 280 + random() * 140
@@ -845,28 +865,20 @@ class Game:
                 x, y = -30, random() * HEIGHT
             else:
                 x, y = WIDTH + 30, random() * HEIGHT
+        return x, y
 
+    def enemy_spawn_hp(self, enemy_type: EnemyType, elite: bool) -> float:
         level_pressure = max(0, self.level - 7) * 2.15
         elite_multiplier = 2.2 if elite else 1.0
         difficulty = self.current_difficulty()
-        self.enemies.append(
-            make_enemy_state(
-                enemy_type,
-                x,
-                y,
-                (
-                    enemy_type.hp
-                    + level_pressure
-                    + self.time_survived * (0.35 + self.current_phase().pressure * 0.22)
-                )
-                * difficulty.enemy_hp_mult
-                * elite_multiplier,
-                enemy_type.damage * difficulty.enemy_damage_mult,
-                1.4 + random() * 0.9,
-                1 if enemy_type.name == "Scope Creep" else 0,
-                elite,
-            )
-        )
+        return (
+            enemy_type.hp
+            + level_pressure
+            + self.time_survived * (0.35 + self.current_phase().pressure * 0.22)
+        ) * difficulty.enemy_hp_mult * elite_multiplier
+
+    def enemy_split_depth(self, enemy_type: EnemyType) -> int:
+        return 1 if enemy_type.name == "Scope Creep" else 0
 
     def update_crisis_director(self, dt: float) -> None:
         """Occasionally inject a themed burst of enemies after the safe opening."""
