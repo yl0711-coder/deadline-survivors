@@ -341,7 +341,7 @@ Tagged releases create platform-specific GitHub Release zip assets:
 - `deadline-survivors-macos-apple-silicon.zip`
 - `deadline-survivors-linux.zip`
 
-Use `macos-intel` for Intel Macs and `macos-apple-silicon` for M1 / M2 / M3 / M4 Macs. macOS zips contain `deadline-survivors.app`; Windows and Linux zips contain a standalone executable. Create and push a tag such as `v0.2.3` to publish these release assets.
+Use `macos-intel` for Intel Macs and `macos-apple-silicon` for M1 / M2 / M3 / M4 Macs. macOS zips contain `deadline-survivors.app`; Windows and Linux zips contain a standalone executable. Create and push a tag such as `v0.2.4` to publish these release assets.
 
 ## Test Strategy
 

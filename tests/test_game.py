@@ -41,6 +41,13 @@ class GameTest(unittest.TestCase):
         self.assertEqual(1, self.game.level)
         self.assertEqual(0.0, self.game.time_survived)
 
+    def test_game_init_uses_bundled_font(self) -> None:
+        with patch("pygame.font.SysFont", side_effect=TypeError("broken system font registry")):
+            game = Game()
+            self.assertGreater(game.font.size("Deadline")[0], 0)
+            self.assertGreater(game.small_font.size("Deadline")[0], 0)
+            self.assertGreater(game.large_font.size("Deadline")[0], 0)
+
     def test_all_upgrade_paths_are_callable(self) -> None:
         self.game.start_run()
         for key in {

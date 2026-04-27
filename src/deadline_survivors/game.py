@@ -244,6 +244,13 @@ PATCH_THEMES = {
 }
 
 
+def create_font(size: int, *, bold: bool = False) -> pygame.font.Font:
+    """Create a bundled pygame font without querying platform font registries."""
+    font = pygame.font.Font(None, size)
+    font.set_bold(bold)
+    return font
+
+
 class Game:
     def __init__(self) -> None:
         pygame.mixer.pre_init(44100, -16, 1, 512)
@@ -251,9 +258,9 @@ class Game:
         pygame.display.set_caption(TITLE)
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.SysFont("consolas", 24)
-        self.small_font = pygame.font.SysFont("consolas", 18)
-        self.large_font = pygame.font.SysFont("consolas", 52, bold=True)
+        self.font = create_font(24)
+        self.small_font = create_font(18)
+        self.large_font = create_font(52, bold=True)
         self.best_time = load_best_time()
         self.progression = load_progression()
         self.selected_difficulty = "normal"
