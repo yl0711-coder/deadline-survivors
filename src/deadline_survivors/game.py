@@ -2040,22 +2040,30 @@ class Game:
         y = int(self.player_y)
         lean_x = int(self.player_dx * 4)
         lean_y = int(self.player_dy * 3)
+        self.draw_player_shadow(x, y)
+        self.draw_player_legs(x, y, lean_x)
+        self.draw_player_body(x, y, lean_x, lean_y, skin)
+        self.draw_player_head(x, y, lean_x, lean_y, skin)
+        self.draw_player_laptop(x, y, skin)
 
+    def draw_player_shadow(self, x: int, y: int) -> None:
         shadow = pygame.Rect(x - 18, y + 24, 36, 9)
         pygame.draw.ellipse(self.screen, (8, 10, 14), shadow)
 
+    def draw_player_legs(self, x: int, y: int, lean_x: int) -> None:
         left_leg = pygame.Rect(x - 11 + lean_x, y + 14, 8, 18)
         right_leg = pygame.Rect(x + 3 + lean_x, y + 14, 8, 18)
         pygame.draw.rect(self.screen, (63, 92, 145), left_leg, border_radius=4)
         pygame.draw.rect(self.screen, (63, 92, 145), right_leg, border_radius=4)
 
+    def draw_player_body(self, x: int, y: int, lean_x: int, lean_y: int, skin: dict) -> None:
         body = pygame.Rect(x - 15 + lean_x, y - 4 + lean_y, 30, 27)
         pygame.draw.rect(self.screen, skin["body"], body, border_radius=9)
         pygame.draw.rect(self.screen, skin["outline"], body, 2, border_radius=9)
-
         pygame.draw.line(self.screen, skin["arms"], (x - 13, y + 3), (x - 24, y + 12), 4)
         pygame.draw.line(self.screen, skin["arms"], (x + 13, y + 3), (x + 24, y + 12), 4)
 
+    def draw_player_head(self, x: int, y: int, lean_x: int, lean_y: int, skin: dict) -> None:
         pygame.draw.circle(self.screen, skin["skin"], (x + lean_x, y - 20 + lean_y), 13)
         pygame.draw.arc(
             self.screen,
@@ -2076,6 +2084,7 @@ class Game:
             2,
         )
 
+    def draw_player_laptop(self, x: int, y: int, skin: dict) -> None:
         laptop = pygame.Rect(x - 21, y + 5, 42, 19)
         pygame.draw.rect(self.screen, PANEL, laptop, border_radius=4)
         pygame.draw.rect(self.screen, ACCENT, laptop, 2, border_radius=4)
