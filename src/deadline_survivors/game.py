@@ -1938,12 +1938,19 @@ class Game:
             self.draw_enemy(enemy)
 
     def draw_enemy(self, enemy: EnemyState) -> None:
+        self.draw_enemy_body(enemy)
+        self.draw_elite_marker(enemy)
+        self.draw_enemy_detail(enemy)
+
+    def draw_enemy_body(self, enemy: EnemyState) -> None:
         pygame.draw.circle(
             self.screen,
             enemy["type"].color,
             (int(enemy["x"]), int(enemy["y"])),
             int(enemy["type"].radius),
         )
+
+    def draw_elite_marker(self, enemy: EnemyState) -> None:
         if enemy.get("elite"):
             pygame.draw.circle(
                 self.screen,
@@ -1952,9 +1959,12 @@ class Game:
                 int(enemy["type"].radius + 6),
                 2,
             )
-        if enemy["type"].name == "Meeting":
+
+    def draw_enemy_detail(self, enemy: EnemyState) -> None:
+        enemy_name = enemy["type"].name
+        if enemy_name == "Meeting":
             pygame.draw.circle(self.screen, (230, 240, 255), (int(enemy["x"]), int(enemy["y"])), 6)
-        elif enemy["type"].name == "Alert":
+        elif enemy_name == "Alert":
             pygame.draw.circle(self.screen, (255, 233, 205), (int(enemy["x"]), int(enemy["y"])), 4)
             if enemy.get("dash_timer", 0) > 0:
                 pygame.draw.circle(
@@ -1964,9 +1974,9 @@ class Game:
                     int(enemy["type"].radius + 4),
                     2,
                 )
-        elif enemy["type"].name == "Scope Creep":
+        elif enemy_name == "Scope Creep":
             pygame.draw.circle(self.screen, (245, 228, 255), (int(enemy["x"]), int(enemy["y"])), 5)
-        elif enemy["type"].name == "Outage":
+        elif enemy_name == "Outage":
             pygame.draw.circle(self.screen, PANEL, (int(enemy["x"]), int(enemy["y"])), 12)
             pygame.draw.circle(self.screen, TEXT, (int(enemy["x"]), int(enemy["y"])), 6, 2)
             if enemy.get("rage"):
@@ -1977,7 +1987,7 @@ class Game:
                     int(enemy["type"].radius + 10),
                     2,
                 )
-        elif enemy["type"].name == "Bugling":
+        elif enemy_name == "Bugling":
             pygame.draw.circle(self.screen, (255, 248, 255), (int(enemy["x"]), int(enemy["y"])), 3)
 
     def draw_player_effects(self) -> None:
