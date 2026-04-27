@@ -1877,17 +1877,36 @@ class Game:
         return (ACHIEVEMENT_DEFS[key], description)
 
     def draw(self) -> None:
+        shake_x, shake_y = self.current_screen_shake_offset()
+        self.draw_world()
+        self.draw_state_overlay()
+        self.apply_screen_shake(shake_x, shake_y)
+
+    def current_screen_shake_offset(self) -> tuple[int, int]:
         shake_x = 0
         shake_y = 0
         if self.state != "game_over" and self.shake_timer > 0 and self.shake_strength > 0:
             shake_x = int((random() - 0.5) * 2 * self.shake_strength)
             shake_y = int((random() - 0.5) * 2 * self.shake_strength)
+        return shake_x, shake_y
 
+    def draw_world(self) -> None:
         self.screen.fill(BG)
         self.draw_grid()
         self.draw_objective()
         self.draw_hazards()
+        self.draw_flash_overlay()
+        self.draw_xp_shards()
+        self.draw_powerups()
+        self.draw_drones()
+        self.draw_projectiles()
+        self.draw_enemies()
+        self.draw_player_effects()
+        if self.state not in {"title", "achievements", "game_over"}:
+            self.draw_hud()
+            self.draw_floating_texts()
 
+    def draw_flash_overlay(self) -> None:
         if self.level_flash > 0:
             overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
             overlay.fill((110, 78, 255, int(90 * self.level_flash)))
@@ -1901,12 +1920,11 @@ class Game:
             overlay.fill((255, 176, 60, int(70 * self.kill_flash)))
             self.screen.blit(overlay, (0, 0))
 
+    def draw_xp_shards(self) -> None:
         for shard in self.xp_shards:
             pygame.draw.circle(self.screen, XP_COLOR, (int(shard["x"]), int(shard["y"])), 6)
 
-        self.draw_powerups()
-        self.draw_drones()
-
+    def draw_projectiles(self) -> None:
         for projectile in self.projectiles:
             pygame.draw.circle(
                 self.screen,
@@ -1915,80 +1933,54 @@ class Game:
                 int(projectile["radius"]),
             )
 
+    def draw_enemies(self) -> None:
         for enemy in self.enemies:
+            self.draw_enemy(enemy)
+
+    def draw_enemy(self, enemy: EnemyState) -> None:
+        pygame.draw.circle(
+            self.screen,
+            enemy["type"].color,
+            (int(enemy["x"]), int(enemy["y"])),
+            int(enemy["type"].radius),
+        )
+        if enemy.get("elite"):
             pygame.draw.circle(
                 self.screen,
-                enemy["type"].color,
+                ACCENT,
                 (int(enemy["x"]), int(enemy["y"])),
-                int(enemy["type"].radius),
+                int(enemy["type"].radius + 6),
+                2,
             )
-            if enemy.get("elite"):
+        if enemy["type"].name == "Meeting":
+            pygame.draw.circle(self.screen, (230, 240, 255), (int(enemy["x"]), int(enemy["y"])), 6)
+        elif enemy["type"].name == "Alert":
+            pygame.draw.circle(self.screen, (255, 233, 205), (int(enemy["x"]), int(enemy["y"])), 4)
+            if enemy.get("dash_timer", 0) > 0:
                 pygame.draw.circle(
                     self.screen,
-                    ACCENT,
+                    (255, 255, 255),
                     (int(enemy["x"]), int(enemy["y"])),
-                    int(enemy["type"].radius + 6),
+                    int(enemy["type"].radius + 4),
                     2,
                 )
-            if enemy["type"].name == "Meeting":
+        elif enemy["type"].name == "Scope Creep":
+            pygame.draw.circle(self.screen, (245, 228, 255), (int(enemy["x"]), int(enemy["y"])), 5)
+        elif enemy["type"].name == "Outage":
+            pygame.draw.circle(self.screen, PANEL, (int(enemy["x"]), int(enemy["y"])), 12)
+            pygame.draw.circle(self.screen, TEXT, (int(enemy["x"]), int(enemy["y"])), 6, 2)
+            if enemy.get("rage"):
                 pygame.draw.circle(
                     self.screen,
-                    (230, 240, 255),
+                    RED,
                     (int(enemy["x"]), int(enemy["y"])),
-                    6,
-                )
-            elif enemy["type"].name == "Alert":
-                pygame.draw.circle(
-                    self.screen,
-                    (255, 233, 205),
-                    (int(enemy["x"]), int(enemy["y"])),
-                    4,
-                )
-                if enemy.get("dash_timer", 0) > 0:
-                    pygame.draw.circle(
-                        self.screen,
-                        (255, 255, 255),
-                        (int(enemy["x"]), int(enemy["y"])),
-                        int(enemy["type"].radius + 4),
-                        2,
-                    )
-            elif enemy["type"].name == "Scope Creep":
-                pygame.draw.circle(
-                    self.screen,
-                    (245, 228, 255),
-                    (int(enemy["x"]), int(enemy["y"])),
-                    5,
-                )
-            elif enemy["type"].name == "Outage":
-                pygame.draw.circle(
-                    self.screen,
-                    PANEL,
-                    (int(enemy["x"]), int(enemy["y"])),
-                    12,
-                )
-                pygame.draw.circle(
-                    self.screen,
-                    TEXT,
-                    (int(enemy["x"]), int(enemy["y"])),
-                    6,
+                    int(enemy["type"].radius + 10),
                     2,
                 )
-                if enemy.get("rage"):
-                    pygame.draw.circle(
-                        self.screen,
-                        RED,
-                        (int(enemy["x"]), int(enemy["y"])),
-                        int(enemy["type"].radius + 10),
-                        2,
-                    )
-            elif enemy["type"].name == "Bugling":
-                pygame.draw.circle(
-                    self.screen,
-                    (255, 248, 255),
-                    (int(enemy["x"]), int(enemy["y"])),
-                    3,
-                )
+        elif enemy["type"].name == "Bugling":
+            pygame.draw.circle(self.screen, (255, 248, 255), (int(enemy["x"]), int(enemy["y"])), 3)
 
+    def draw_player_effects(self) -> None:
         self.draw_player()
         if self.state == "game_over" and self.death_burst_timer > 0:
             self.draw_death_burst()
@@ -2009,10 +2001,7 @@ class Game:
                 2,
             )
 
-        if self.state not in {"title", "achievements", "game_over"}:
-            self.draw_hud()
-            self.draw_floating_texts()
-
+    def draw_state_overlay(self) -> None:
         if self.state == "title":
             draw_title_overlay(self)
         elif self.state == "help":
@@ -2028,6 +2017,7 @@ class Game:
         elif self.state == "game_over":
             self.draw_game_over_overlay()
 
+    def apply_screen_shake(self, shake_x: int, shake_y: int) -> None:
         if shake_x or shake_y:
             shaken = self.screen.copy()
             self.screen.fill(BG)
