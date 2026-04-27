@@ -15,6 +15,20 @@ The game is designed for local play only:
 - run from source
 - or download a packaged binary for your OS
 
+## Demo
+
+![Deadline Survivors gameplay demo](assets/demo.gif)
+
+## Screenshots
+
+| Title | Gameplay |
+| --- | --- |
+| ![Title screen](assets/screenshots/title.png) | ![Gameplay](assets/screenshots/gameplay.png) |
+
+| Upgrade | Game Over |
+| --- | --- |
+| ![Upgrade selection](assets/screenshots/upgrade.png) | ![Game over summary](assets/screenshots/game-over.png) |
+
 ## Why This Stack
 
 This project uses two mature open-source components:

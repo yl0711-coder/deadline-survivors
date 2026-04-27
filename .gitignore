@@ -10,3 +10,5 @@ build/
 .pyinstaller/
 .deadline_survivors/
 测试结果/
+assets/recordings/*.mov
+assets/recordings/*-palette.png

@@ -19,6 +19,20 @@
 - 直接运行源码
 - 或下载对应系统的二进制包
 
+## 演示
+
+![Deadline Survivors 玩法演示](assets/demo.gif)
+
+## 截图
+
+| 启动页 | 游戏中 |
+| --- | --- |
+| ![启动页](assets/screenshots/title.png) | ![游戏中](assets/screenshots/gameplay.png) |
+
+| 升级选择 | 结算页 |
+| --- | --- |
+| ![升级选择](assets/screenshots/upgrade.png) | ![结算页](assets/screenshots/game-over.png) |
+
 ## 为什么选这个技术栈
 
 项目使用两个成熟的开源组件：
