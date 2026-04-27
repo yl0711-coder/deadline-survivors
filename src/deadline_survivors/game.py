@@ -289,67 +289,99 @@ class Game:
     def choose_upgrade(self, key: str) -> None:
         """Apply a run-long level-up upgrade."""
         scaling = self.run_scaling_bonus()
-        if key == "damage":
-            gain = int(8 * scaling)
-            self.projectile_damage += gain
-            self.spawn_floating_text(self.player_x, self.player_y - 44, f"+{gain} damage", ACCENT)
-        elif key == "speed":
-            self.player_speed *= 1.12 + min(0.07, (self.level - 1) * 0.006)
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "Move up", BLUE)
-        elif key == "projectiles":
-            if self.projectile_count < 5:
-                self.projectile_count += 1
-                self.spawn_floating_text(self.player_x, self.player_y - 44, "+1 patch", PURPLE)
-            else:
-                self.attack_cooldown *= 0.94
-                self.projectile_damage += 2
-                self.spawn_floating_text(
-                    self.player_x,
-                    self.player_y - 44,
-                    "Multicast tuned",
-                    PURPLE,
-                )
-        elif key == "magnet":
-            self.pickup_radius += int(26 * scaling)
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "Radar up", XP_COLOR)
-        elif key == "shield":
-            max_hp_gain = int(24 * scaling)
-            heal_gain = int(14 * scaling)
-            self.player_max_hp += max_hp_gain
-            self.player_hp = min(self.player_max_hp, self.player_hp + heal_gain)
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "Shield up", BLUE)
-        elif key == "pierce":
-            self.pierce += 1
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "Pierce +1", PURPLE)
-        elif key == "pulse":
-            self.pulse_unlocked = True
-            self.pulse_timer = min(self.pulse_timer, 1.0)
-            self.pulse_radius += int(22 * scaling)
-            self.pulse_damage += int(8 * scaling)
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "Pulse online", PURPLE)
-        elif key == "recovery":
-            self.regen_interval = (
-                6.0 if self.regen_interval == 0 else max(2.7, self.regen_interval * 0.82)
-            )
-            self.regen_timer = self.regen_interval
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "Recovery up", BLUE)
-        elif key == "chain":
-            self.chain_count += 1
-            self.chain_range = 120 + self.chain_count * 20
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "Code review", PURPLE)
-        elif key == "drone":
-            self.drone_count += 1
-            self.drone_cooldown = max(0.34, self.drone_cooldown * 0.86)
-            self.drone_timer = min(self.drone_timer, 0.35)
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "Pair online", GREEN)
-        elif key == "failsafe":
-            self.failsafe_level += 1
-            self.failsafe_cooldown = min(self.failsafe_cooldown, 3.0)
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "Guard armed", BLUE)
-        elif key == "overclock":
-            self.overclock_level += 1
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "Build overclocked", ACCENT)
+        handlers = {
+            "damage": self.apply_damage_upgrade,
+            "speed": self.apply_speed_upgrade,
+            "projectiles": self.apply_projectiles_upgrade,
+            "magnet": self.apply_magnet_upgrade,
+            "shield": self.apply_shield_upgrade,
+            "pierce": self.apply_pierce_upgrade,
+            "pulse": self.apply_pulse_upgrade,
+            "recovery": self.apply_recovery_upgrade,
+            "chain": self.apply_chain_upgrade,
+            "drone": self.apply_drone_upgrade,
+            "failsafe": self.apply_failsafe_upgrade,
+            "overclock": self.apply_overclock_upgrade,
+        }
+        handler = handlers.get(key)
+        if handler:
+            handler(scaling)
         self.play_sound("level")
+
+    def apply_damage_upgrade(self, scaling: float) -> None:
+        gain = int(8 * scaling)
+        self.projectile_damage += gain
+        self.spawn_floating_text(self.player_x, self.player_y - 44, f"+{gain} damage", ACCENT)
+
+    def apply_speed_upgrade(self, scaling: float) -> None:
+        del scaling
+        self.player_speed *= 1.12 + min(0.07, (self.level - 1) * 0.006)
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "Move up", BLUE)
+
+    def apply_projectiles_upgrade(self, scaling: float) -> None:
+        del scaling
+        if self.projectile_count < 5:
+            self.projectile_count += 1
+            self.spawn_floating_text(self.player_x, self.player_y - 44, "+1 patch", PURPLE)
+            return
+        self.attack_cooldown *= 0.94
+        self.projectile_damage += 2
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "Multicast tuned", PURPLE)
+
+    def apply_magnet_upgrade(self, scaling: float) -> None:
+        self.pickup_radius += int(26 * scaling)
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "Radar up", XP_COLOR)
+
+    def apply_shield_upgrade(self, scaling: float) -> None:
+        max_hp_gain = int(24 * scaling)
+        heal_gain = int(14 * scaling)
+        self.player_max_hp += max_hp_gain
+        self.player_hp = min(self.player_max_hp, self.player_hp + heal_gain)
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "Shield up", BLUE)
+
+    def apply_pierce_upgrade(self, scaling: float) -> None:
+        del scaling
+        self.pierce += 1
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "Pierce +1", PURPLE)
+
+    def apply_pulse_upgrade(self, scaling: float) -> None:
+        self.pulse_unlocked = True
+        self.pulse_timer = min(self.pulse_timer, 1.0)
+        self.pulse_radius += int(22 * scaling)
+        self.pulse_damage += int(8 * scaling)
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "Pulse online", PURPLE)
+
+    def apply_recovery_upgrade(self, scaling: float) -> None:
+        del scaling
+        self.regen_interval = (
+            6.0 if self.regen_interval == 0 else max(2.7, self.regen_interval * 0.82)
+        )
+        self.regen_timer = self.regen_interval
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "Recovery up", BLUE)
+
+    def apply_chain_upgrade(self, scaling: float) -> None:
+        del scaling
+        self.chain_count += 1
+        self.chain_range = 120 + self.chain_count * 20
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "Code review", PURPLE)
+
+    def apply_drone_upgrade(self, scaling: float) -> None:
+        del scaling
+        self.drone_count += 1
+        self.drone_cooldown = max(0.34, self.drone_cooldown * 0.86)
+        self.drone_timer = min(self.drone_timer, 0.35)
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "Pair online", GREEN)
+
+    def apply_failsafe_upgrade(self, scaling: float) -> None:
+        del scaling
+        self.failsafe_level += 1
+        self.failsafe_cooldown = min(self.failsafe_cooldown, 3.0)
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "Guard armed", BLUE)
+
+    def apply_overclock_upgrade(self, scaling: float) -> None:
+        del scaling
+        self.overclock_level += 1
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "Build overclocked", ACCENT)
 
     def run(self) -> int:
         while True:
