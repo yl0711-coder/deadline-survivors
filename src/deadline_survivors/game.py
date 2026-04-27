@@ -2494,36 +2494,50 @@ class Game:
         }.get(group_name, group_description)
         achievements = self.progression["achievements"]
         unlocked_in_group = sum(1 for key, _ in rows if achievements[key].get("unlocked"))
+        self.draw_achievement_group_frame(x, y, group_name, group_color, group_summary, unlocked_in_group, len(rows))
+        for row_index, (key, _) in enumerate(rows):
+            self.draw_achievement_group_row(x, y + 74 + row_index * 22, key)
+
+    def draw_achievement_group_frame(
+        self,
+        x: int,
+        y: int,
+        group_name: str,
+        group_color: tuple[int, int, int],
+        group_summary: str,
+        unlocked_count: int,
+        total_count: int,
+    ) -> None:
         rect = pygame.Rect(x, y, 440, 142)
         pygame.draw.rect(self.screen, BG, rect, border_radius=16)
         pygame.draw.rect(self.screen, group_color, (x, y, rect.width, 5), border_radius=16)
         pygame.draw.rect(self.screen, GRID, rect, 1, border_radius=16)
         pygame.draw.circle(self.screen, group_color, (x + 22, y + 28), 8)
         self.blit(self.font, group_name, group_color, x + 40, y + 14)
-        self.blit(self.small_font, f"{unlocked_in_group}/{len(rows)}", MUTED, x + 374, y + 20)
+        self.blit(self.small_font, f"{unlocked_count}/{total_count}", MUTED, x + 374, y + 20)
         self.blit(self.small_font, group_summary, MUTED, x + 20, y + 48)
 
-        for row_index, (key, _) in enumerate(rows):
-            row_y = y + 74 + row_index * 22
-            unlocked = achievements[key].get("unlocked", False)
-            recent = self.achievement_is_recent(key)
-            progress_ratio = self.achievement_progress_ratio(key)
-            marker_color = ACCENT if recent else (GREEN if unlocked else GRID)
-            progress_color = marker_color if unlocked or recent else MUTED
-            text_color = TEXT if unlocked or recent else MUTED
-            pygame.draw.circle(self.screen, marker_color, (x + 26, row_y + 7), 5)
-            self.blit(self.small_font, ACHIEVEMENT_DEFS[key], text_color, x + 42, row_y - 3)
-            if recent:
-                self.blit(self.small_font, "NEW", ACCENT, x + 232, row_y - 3)
-            self.blit(self.small_font, self.achievement_progress_text(key), progress_color, x + 286, row_y - 3)
-            self.draw_achievement_progress_bar(
-                x + 42,
-                row_y + 15,
-                190,
-                5,
-                progress_ratio,
-                GREEN if unlocked else ACCENT,
-            )
+    def draw_achievement_group_row(self, x: int, row_y: int, key: str) -> None:
+        achievements = self.progression["achievements"]
+        unlocked = achievements[key].get("unlocked", False)
+        recent = self.achievement_is_recent(key)
+        progress_ratio = self.achievement_progress_ratio(key)
+        marker_color = ACCENT if recent else (GREEN if unlocked else GRID)
+        progress_color = marker_color if unlocked or recent else MUTED
+        text_color = TEXT if unlocked or recent else MUTED
+        pygame.draw.circle(self.screen, marker_color, (x + 26, row_y + 7), 5)
+        self.blit(self.small_font, ACHIEVEMENT_DEFS[key], text_color, x + 42, row_y - 3)
+        if recent:
+            self.blit(self.small_font, "NEW", ACCENT, x + 232, row_y - 3)
+        self.blit(self.small_font, self.achievement_progress_text(key), progress_color, x + 286, row_y - 3)
+        self.draw_achievement_progress_bar(
+            x + 42,
+            row_y + 15,
+            190,
+            5,
+            progress_ratio,
+            GREEN if unlocked else ACCENT,
+        )
 
     def draw_achievement_progress_bar(
         self,
