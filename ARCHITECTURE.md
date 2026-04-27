@@ -21,7 +21,8 @@ The desktop launcher is intentionally thin:
 | `src/deadline_survivors/modules/runtime.py` | Game lifecycle, pygame setup, frame orchestration, and top-level run finalization. |
 | `src/deadline_survivors/modules/run_state.py` | Run-local state initialization: menus, player stats, combat defaults, directors, build state, feedback, stats, and runtime collections. |
 | `src/deadline_survivors/modules/input.py` | Keyboard input, title menu, game-over menu, pause, help/about navigation, and level-up choice selection. |
-| `src/deadline_survivors/modules/renderer.py` | All drawing code: world, player, enemies, HUD, overlays, achievements, level-up, and game-over screen. |
+| `src/deadline_survivors/modules/renderer.py` | World rendering, player/enemy drawing, HUD, visual effects, and shared text blitting. |
+| `src/deadline_survivors/modules/overlay_renderer.py` | Non-world overlays: help, about, achievements, pause, level-up choices, and game-over report. |
 | `src/deadline_survivors/modules/progression.py` | Cosmetics, upgrades, XP level choices, achievements, run evaluation, and progression persistence hooks. |
 | `src/deadline_survivors/modules/combat_system.py` | Projectile firing, enemy contact, combat resolution, XP shard pickup, powerups, chain shots, overclock burst, failsafe, and enemy kill side effects. |
 | `src/deadline_survivors/modules/director_system.py` | Encounter pressure: enemy spawning, crisis waves, boss spawning, hazards, and deploy-window objectives. |
@@ -47,7 +48,8 @@ The desktop launcher is intentionally thin:
 | Change upgrade effects, level-up choices, achievements, skins, badges, or run evaluation | `modules/progression.py`. |
 | Change player movement, momentum, regeneration, pulse, drone, or floating text feedback | `modules/player_system.py`. |
 | Change keyboard shortcuts or menu navigation | `modules/input.py`. |
-| Change the HUD, player visuals, enemy visuals, or overlay screens | `modules/renderer.py`. |
+| Change the HUD, player visuals, enemy visuals, or world effects | `modules/renderer.py`. |
+| Change help/about, achievements, level-up, pause, or game-over screens | `modules/overlay_renderer.py`. |
 | Change save data shape | `storage.py` plus tests for migration/default behavior. |
 | Change startup, packaged binary entry, or smoke-test behavior | `run_game.py` or the thin `game.py` entrypoint. |
 | Change initial run defaults or reset behavior | `modules/run_state.py`. |
@@ -77,4 +79,4 @@ SDL_VIDEODRIVER=dummy .venv/bin/python run_game.py --smoke-test
 
 ## Current Status
 
-The original monolithic `game.py` has been reduced to a thin compatibility entrypoint. Runtime behavior is split across input, renderer, progression, combat, director, player-system, and run-state modules. `runtime.py` now stays focused on pygame lifecycle, frame orchestration, and run finalization.
+The original monolithic `game.py` has been reduced to a thin compatibility entrypoint. Runtime behavior is split across input, renderer, overlay-renderer, progression, combat, director, player-system, and run-state modules. `runtime.py` now stays focused on pygame lifecycle, frame orchestration, and run finalization.
