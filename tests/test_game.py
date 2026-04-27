@@ -43,6 +43,36 @@ class GameTest(unittest.TestCase):
         self.assertEqual(1, self.game.level)
         self.assertEqual(0.0, self.game.time_survived)
 
+    def test_reset_restores_core_run_defaults(self) -> None:
+        self.game.start_run()
+        self.game.player_hp = 12.0
+        self.game.level = 7
+        self.game.projectile_count = 4
+        self.game.momentum = 1.0
+        self.game.enemies.append(
+            {
+                "type": next(enemy for enemy in ENEMY_TYPES if enemy.name == "Bug"),
+                "x": 100.0,
+                "y": 100.0,
+                "hp": 1.0,
+            }
+        )
+
+        self.game.reset()
+
+        self.assertEqual("title", self.game.state)
+        self.assertEqual(1, self.game.level)
+        self.assertEqual(0.0, self.game.time_survived)
+        self.assertEqual(100.0, self.game.player_hp)
+        self.assertEqual(100.0, self.game.player_max_hp)
+        self.assertEqual(1, self.game.projectile_count)
+        self.assertEqual(22.0, self.game.projectile_damage)
+        self.assertEqual(0.0, self.game.momentum)
+        self.assertEqual("Idle", self.game.momentum_tier)
+        self.assertEqual([], self.game.enemies)
+        self.assertEqual([], self.game.projectiles)
+        self.assertIsNone(self.game.objective)
+
     def test_package_version_matches_project_metadata(self) -> None:
         metadata = (ROOT / "pyproject.toml").read_text()
         match = re.search(r'^version = "([^"]+)"$', metadata, re.MULTILINE)
