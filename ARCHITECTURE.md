@@ -18,12 +18,13 @@ The desktop launcher is intentionally thin:
 | Module | Responsibility |
 | --- | --- |
 | `src/deadline_survivors/game.py` | Public entrypoint and compatibility exports. Keep this file thin. |
-| `src/deadline_survivors/modules/runtime.py` | Game lifecycle, pygame setup, base run state, frame orchestration, player movement, momentum, and short-lived feedback state. |
+| `src/deadline_survivors/modules/runtime.py` | Game lifecycle, pygame setup, base run state, frame orchestration, and top-level run finalization. |
 | `src/deadline_survivors/modules/input.py` | Keyboard input, title menu, game-over menu, pause, help/about navigation, and level-up choice selection. |
 | `src/deadline_survivors/modules/renderer.py` | All drawing code: world, player, enemies, HUD, overlays, achievements, level-up, and game-over screen. |
 | `src/deadline_survivors/modules/progression.py` | Cosmetics, upgrades, XP level choices, achievements, run evaluation, and progression persistence hooks. |
 | `src/deadline_survivors/modules/combat_system.py` | Projectile firing, enemy contact, combat resolution, XP shard pickup, powerups, chain shots, overclock burst, failsafe, and enemy kill side effects. |
 | `src/deadline_survivors/modules/director_system.py` | Encounter pressure: enemy spawning, crisis waves, boss spawning, hazards, and deploy-window objectives. |
+| `src/deadline_survivors/modules/player_system.py` | Player movement, momentum tiers, regeneration, pulse/drone build effects, and floating text feedback. |
 | `src/deadline_survivors/content.py` | Tunable content: enemy definitions, upgrades, phases, difficulties, achievements, skins, badges, and patch themes. |
 | `src/deadline_survivors/models.py` | Shared dataclasses and `TypedDict` runtime state shapes. |
 | `src/deadline_survivors/state_factory.py` | Factory functions for runtime dictionaries such as enemies, projectiles, hazards, and outage bosses. |
@@ -43,6 +44,7 @@ The desktop launcher is intentionally thin:
 | Change enemy movement, boss behavior, hazards, or deploy windows | `modules/director_system.py`. |
 | Change projectile behavior, powerups, enemy rewards, or contact damage | `modules/combat_system.py`. |
 | Change upgrade effects, level-up choices, achievements, skins, badges, or run evaluation | `modules/progression.py`. |
+| Change player movement, momentum, regeneration, pulse, drone, or floating text feedback | `modules/player_system.py`. |
 | Change keyboard shortcuts or menu navigation | `modules/input.py`. |
 | Change the HUD, player visuals, enemy visuals, or overlay screens | `modules/renderer.py`. |
 | Change save data shape | `storage.py` plus tests for migration/default behavior. |
@@ -73,4 +75,4 @@ SDL_VIDEODRIVER=dummy .venv/bin/python run_game.py --smoke-test
 
 ## Current Status
 
-The original monolithic `game.py` has been reduced to a thin compatibility entrypoint. Runtime behavior is split across input, renderer, progression, combat, and director modules. `runtime.py` still owns base state and frame orchestration, which is acceptable for now, but future refactors can split player movement/momentum and reset-state initialization if those areas become active maintenance points.
+The original monolithic `game.py` has been reduced to a thin compatibility entrypoint. Runtime behavior is split across input, renderer, progression, combat, director, and player-system modules. `runtime.py` still owns base state initialization and frame orchestration, which is acceptable for now, but future refactors can split reset-state initialization if it becomes an active maintenance point.
