@@ -1697,50 +1697,82 @@ class Game:
         return tags
 
     def current_run_evaluation_text(self) -> tuple[str, str, list[str]]:
+        for matched, title, description, fallback_tags in self.run_evaluation_candidates():
+            if matched:
+                return title, description, fallback_tags
+        return self.default_run_evaluation_text()
+
+    def run_evaluation_candidates(self) -> list[tuple[bool, str, str, list[str]]]:
+        return [
+            self.outage_hunter_evaluation(),
+            self.deploy_specialist_evaluation(),
+            self.pair_programming_evaluation(),
+            self.code_review_evaluation(),
+            self.last_minute_evaluation(),
+            self.patch_sprinter_evaluation(),
+            self.incident_cleaner_evaluation(),
+        ]
+
+    def outage_hunter_evaluation(self) -> tuple[bool, str, str, list[str]]:
         if self.stats["outages_resolved"] >= 2:
             return (
+                True,
                 "Outage Hunter",
                 "You treated production outages as the main objective and kept the run under control.",
                 ["Boss Priority"],
             )
-        if self.stats["deploys"] >= 4:
-            return (
-                "Deploy Specialist",
-                "You kept rotating into risky deploy windows and turned map pressure into growth.",
-                ["Deploy Focus"],
-            )
-        if self.drone_count >= 2:
-            return (
-                "Pair Programming Lead",
-                "This run leaned on support patches and felt more like coordinated repair work.",
-                ["Support Build"],
-            )
-        if self.chain_count >= 2 and (self.pierce > 0 or self.overclock_level > 0):
-            return (
-                "Code Review Machine",
-                "One patch kept turning into more fixes as the build spread through clustered problems.",
-                ["Chain Build"],
-            )
-        if self.stats["failsafe_triggers"] >= 2 or (
-            self.stats["failsafe_triggers"] >= 1 and self.time_survived >= 240
-        ):
-            return (
-                "Last-Minute Hero",
-                "This run survived repeated emergencies and kept shipping patches after near collapses.",
-                ["Low HP Survivor"],
-            )
-        if self.max_momentum >= 0.85 and self.stats["deploys"] >= 2:
-            return (
-                "Patch Sprinter",
-                "You kept the run moving, stayed in flow, and converted mobility into steady growth.",
-                ["High Momentum"],
-            )
-        if self.run_resolved_count() >= 90 and (self.pulse_unlocked or self.overclock_level > 0):
-            return (
-                "Incident Cleaner",
-                "The build focused on cleaning waves quickly instead of only escaping them.",
-                ["Wave Cleaner"],
-            )
+        return False, "", "", []
+
+    def deploy_specialist_evaluation(self) -> tuple[bool, str, str, list[str]]:
+        return (
+            self.stats["deploys"] >= 4,
+            "Deploy Specialist",
+            "You kept rotating into risky deploy windows and turned map pressure into growth.",
+            ["Deploy Focus"],
+        )
+
+    def pair_programming_evaluation(self) -> tuple[bool, str, str, list[str]]:
+        return (
+            self.drone_count >= 2,
+            "Pair Programming Lead",
+            "This run leaned on support patches and felt more like coordinated repair work.",
+            ["Support Build"],
+        )
+
+    def code_review_evaluation(self) -> tuple[bool, str, str, list[str]]:
+        return (
+            self.chain_count >= 2 and (self.pierce > 0 or self.overclock_level > 0),
+            "Code Review Machine",
+            "One patch kept turning into more fixes as the build spread through clustered problems.",
+            ["Chain Build"],
+        )
+
+    def last_minute_evaluation(self) -> tuple[bool, str, str, list[str]]:
+        return (
+            self.stats["failsafe_triggers"] >= 2
+            or (self.stats["failsafe_triggers"] >= 1 and self.time_survived >= 240),
+            "Last-Minute Hero",
+            "This run survived repeated emergencies and kept shipping patches after near collapses.",
+            ["Low HP Survivor"],
+        )
+
+    def patch_sprinter_evaluation(self) -> tuple[bool, str, str, list[str]]:
+        return (
+            self.max_momentum >= 0.85 and self.stats["deploys"] >= 2,
+            "Patch Sprinter",
+            "You kept the run moving, stayed in flow, and converted mobility into steady growth.",
+            ["High Momentum"],
+        )
+
+    def incident_cleaner_evaluation(self) -> tuple[bool, str, str, list[str]]:
+        return (
+            self.run_resolved_count() >= 90 and (self.pulse_unlocked or self.overclock_level > 0),
+            "Incident Cleaner",
+            "The build focused on cleaning waves quickly instead of only escaping them.",
+            ["Wave Cleaner"],
+        )
+
+    def default_run_evaluation_text(self) -> tuple[str, str, list[str]]:
         return (
             "Steady Maintainer",
             "You kept the system running without overcommitting to a single high-risk route.",
