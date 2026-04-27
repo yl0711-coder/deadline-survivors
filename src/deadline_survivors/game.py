@@ -493,6 +493,14 @@ class Game:
 
     def update(self, dt: float) -> None:
         """Advance one gameplay frame while the run is active."""
+        self.advance_frame_timers(dt)
+        self.update_player_systems(dt)
+        self.update_directors(dt)
+        self.update_combat_systems(dt)
+        self.finish_run_if_player_is_defeated()
+
+    def advance_frame_timers(self, dt: float) -> None:
+        """Advance short-lived gameplay timers for one active frame."""
         self.time_survived += dt
         self.contact_timer = max(0.0, self.contact_timer - dt)
         self.grace_timer = max(0.0, self.grace_timer - dt)
@@ -510,21 +518,31 @@ class Game:
         if self.shake_timer <= 0:
             self.shake_strength = 0.0
 
+    def update_player_systems(self, dt: float) -> None:
+        """Update movement, build effects, and run objectives."""
         self.move_player(dt)
         self.update_momentum(dt)
         self.update_regen(dt)
         self.update_drone(dt)
         self.update_objective(dt)
+
+    def update_directors(self, dt: float) -> None:
+        """Update systems that add external pressure to the run."""
         self.update_crisis_director(dt)
         self.update_boss_director(dt)
         self.update_hazards(dt)
+        self.spawn_enemy_if_ready()
 
+    def spawn_enemy_if_ready(self) -> None:
+        """Spawn the next enemy wave when the spawn timer expires."""
         if self.spawn_timer <= 0:
             self.spawn_enemy()
             phase = self.current_phase()
             spawn_base = phase.spawn_base * self.current_difficulty().spawn_interval_mult
             self.spawn_timer = max(0.18, spawn_base - min(self.time_survived / 72, 0.18))
 
+    def update_combat_systems(self, dt: float) -> None:
+        """Update attacks, collisions, pickups, and floating combat feedback."""
         if self.attack_timer <= 0:
             self.fire_projectiles()
             self.attack_timer = self.effective_attack_cooldown()
@@ -538,6 +556,8 @@ class Game:
         self.update_floating_texts(dt)
         self.check_level_up()
 
+    def finish_run_if_player_is_defeated(self) -> None:
+        """Finalize a run exactly once when player health reaches zero."""
         if self.player_hp <= 0:
             self.state = "game_over"
             self.death_burst_timer = 1.0
