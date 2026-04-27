@@ -15,6 +15,7 @@ from ..storage import load_best_time, load_progression, save_best_time
 from . import input as input_module
 from .combat_system import CombatMixin
 from .director_system import DirectorMixin
+from .options_system import OptionsSystemMixin
 from .player_system import PlayerSystemMixin
 from .progression import ProgressionMixin
 from .renderer import RendererMixin
@@ -33,6 +34,7 @@ class Game(
     ProgressionMixin,
     CombatMixin,
     DirectorMixin,
+    OptionsSystemMixin,
     PlayerSystemMixin,
     RunStateMixin,
 ):
@@ -71,6 +73,8 @@ class Game(
         )
 
     def play_sound(self, key: str) -> None:
+        if not self.setting_enabled("sound_enabled"):
+            return
         self.audio.play(key)
 
     def trigger_screen_shake(self, duration: float, strength: float) -> None:

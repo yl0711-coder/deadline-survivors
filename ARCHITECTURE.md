@@ -25,6 +25,7 @@ The desktop launcher is intentionally thin:
 | `src/deadline_survivors/modules/overlay_renderer.py` | Non-world overlays: help, about, achievements, pause, level-up choices, and game-over report. |
 | `src/deadline_survivors/modules/progression.py` | Cosmetics, XP level choices, and run-long upgrade application. |
 | `src/deadline_survivors/modules/achievement_system.py` | Achievements, run evaluation labels, resolved-count summaries, local run history, and progression persistence hooks. |
+| `src/deadline_survivors/modules/options_system.py` | Player settings, setting persistence, and local save reset helpers. |
 | `src/deadline_survivors/modules/combat_system.py` | Projectile firing, enemy contact, combat resolution, XP shard pickup, powerups, chain shots, overclock burst, failsafe, and enemy kill side effects. |
 | `src/deadline_survivors/modules/director_system.py` | Encounter pressure: enemy spawning, crisis waves, boss spawning, hazards, and deploy-window objectives. |
 | `src/deadline_survivors/modules/player_system.py` | Player movement, momentum tiers, regeneration, pulse/drone build effects, and floating text feedback. |
@@ -48,6 +49,7 @@ The desktop launcher is intentionally thin:
 | Change projectile behavior, powerups, enemy rewards, or contact damage | `modules/combat_system.py`. |
 | Change upgrade effects, level-up choices, skins, badges, or patch themes | `modules/progression.py`. |
 | Change achievements, run evaluation text, run history, resolved-count summaries, or progression snapshots | `modules/achievement_system.py`. |
+| Change sound/floating-text settings or clear-local-data behavior | `modules/options_system.py`. |
 | Change player movement, momentum, regeneration, pulse, drone, or floating text feedback | `modules/player_system.py`. |
 | Change keyboard shortcuts or menu navigation | `modules/input.py`. |
 | Change the HUD, player visuals, enemy visuals, or world effects | `modules/renderer.py`. |
@@ -81,4 +83,4 @@ SDL_VIDEODRIVER=dummy .venv/bin/python run_game.py --smoke-test
 
 ## Current Status
 
-The original monolithic `game.py` has been reduced to a thin compatibility entrypoint. Runtime behavior is split across input, renderer, overlay-renderer, progression, achievement-system, combat, director, player-system, and run-state modules. `runtime.py` now stays focused on pygame lifecycle, frame orchestration, and run finalization.
+The original monolithic `game.py` has been reduced to a thin compatibility entrypoint. Runtime behavior is split across input, renderer, overlay-renderer, progression, achievement-system, options, combat, director, player-system, and run-state modules. `runtime.py` now stays focused on pygame lifecycle, frame orchestration, and run finalization.

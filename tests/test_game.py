@@ -609,9 +609,28 @@ class GameTest(unittest.TestCase):
         self.assertGreater(self.game.failsafe_cooldown, 0)
 
     def test_play_sound_is_safe_when_audio_is_unavailable(self) -> None:
-        self.game.sound_enabled = False
-        self.game.sounds = {}
+        self.game.audio.enabled = False
         self.game.play_sound("patch")
+
+    def test_sound_setting_blocks_audio_playback(self) -> None:
+        calls = []
+        self.game.audio.enabled = True
+        self.game.audio.sounds = {"patch": type("Sound", (), {"play": lambda self: calls.append("patch")})()}
+
+        self.game.play_sound("patch")
+        self.game.toggle_sound()
+        self.game.play_sound("patch")
+
+        self.assertEqual(["patch"], calls)
+        self.assertFalse(load_progression()["settings"]["sound_enabled"])
+
+    def test_floating_text_setting_suppresses_new_text(self) -> None:
+        self.game.toggle_floating_text()
+
+        self.game.spawn_floating_text(10, 10, "test", GREEN)
+
+        self.assertEqual([], self.game.floating_texts)
+        self.assertFalse(load_progression()["settings"]["floating_text_enabled"])
 
     def test_difficulty_affects_spawned_enemy_stats(self) -> None:
         self.game.selected_difficulty = "casual"
@@ -779,6 +798,27 @@ class GameTest(unittest.TestCase):
         progression = merge_progression({"totals": {"best_time": 12.0}})
 
         self.assertEqual([], progression["run_history"])
+
+    def test_merge_progression_adds_default_settings_for_old_saves(self) -> None:
+        progression = merge_progression({"settings": {"sound_enabled": False}})
+
+        self.assertFalse(progression["settings"]["sound_enabled"])
+        self.assertTrue(progression["settings"]["floating_text_enabled"])
+
+    def test_options_overlay_can_render_and_clear_local_data(self) -> None:
+        self.game.progression["achievements"]["first_deploy"]["unlocked"] = True
+        self.game.progression["run_history"] = [{"survived": 90.0}]
+        self.game.best_time = 90.0
+        self.game.state = "options"
+        self.game.draw()
+
+        self.game.clear_local_data()
+        progression = load_progression()
+
+        self.assertEqual("options", self.game.state)
+        self.assertEqual(0.0, self.game.best_time)
+        self.assertEqual([], progression["run_history"])
+        self.assertFalse(progression["achievements"]["first_deploy"]["unlocked"])
 
     def test_achievement_unlocks_skin_and_cycle_persists_selection(self) -> None:
         self.assertEqual(["default"], self.game.unlocked_skins())

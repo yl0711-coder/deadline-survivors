@@ -146,6 +146,8 @@ class PlayerSystemMixin:
         text: str,
         color: tuple[int, int, int],
     ) -> None:
+        if not self.setting_enabled("floating_text_enabled"):
+            return
         self.floating_texts.append(
             {
                 "x": x,

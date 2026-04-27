@@ -29,6 +29,11 @@ DEFAULT_ACHIEVEMENTS = {
     "bug_tracker": {"unlocked": False},
 }
 
+DEFAULT_SETTINGS = {
+    "sound_enabled": True,
+    "floating_text_enabled": True,
+}
+
 RUN_HISTORY_LIMIT = 10
 
 
@@ -58,6 +63,7 @@ def default_progression() -> dict:
         "achievements": copy.deepcopy(DEFAULT_ACHIEVEMENTS),
         "totals": copy.deepcopy(DEFAULT_PROGRESS_TOTALS),
         "run_history": [],
+        "settings": copy.deepcopy(DEFAULT_SETTINGS),
     }
 
 
@@ -119,7 +125,20 @@ def merge_progression(raw_progression: object) -> dict:
         progression["selected_patch_theme"] = selected_patch_theme
 
     progression["run_history"] = merge_run_history(raw_progression.get("run_history"))
+    progression["settings"] = merge_settings(raw_progression.get("settings"))
     return progression
+
+
+def merge_settings(raw_settings: object) -> dict:
+    """Merge optional player settings with safe defaults."""
+    settings = copy.deepcopy(DEFAULT_SETTINGS)
+    if not isinstance(raw_settings, dict):
+        return settings
+    for key in DEFAULT_SETTINGS:
+        value = raw_settings.get(key)
+        if isinstance(value, bool):
+            settings[key] = value
+    return settings
 
 
 def merge_run_history(raw_history: object) -> list[dict]:
@@ -198,3 +217,10 @@ def save_progression(best_time: float, progression: dict) -> None:
     """Persist progression data together with the current best survival time."""
     progression["totals"]["best_time"] = max(progression["totals"]["best_time"], float(best_time))
     write_save_data(best_time, progression)
+
+
+def reset_save_data() -> dict:
+    """Replace local save data with defaults and return the fresh progression."""
+    progression = default_progression()
+    write_save_data(0.0, progression)
+    return progression

@@ -54,6 +54,7 @@ py run_game.py
 - `1`, `2`, `3`: choose difficulty or level-up upgrades
 - `A`: achievements
 - `H`: local run history
+- `O`: options
 - `B`: cycle badges
 - `S`: cycle player skins
 - `T`: cycle patch themes
@@ -71,6 +72,7 @@ py run_game.py
 - Build Momentum by moving; high Momentum improves patching and pickup flow.
 - Prioritize Production Outages before they flood the map with hazards and support enemies.
 - Review your last 10 completed runs locally with `H`.
+- Use `O` to toggle sound, toggle floating text, or clear local save data.
 
 ## Project Notes
 

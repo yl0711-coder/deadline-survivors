@@ -309,6 +309,38 @@ class OverlayRendererMixin:
             build = " / ".join(str(tag) for tag in tags[:2]) if isinstance(tags, list) else ""
             self.blit(self.small_font, build or str(entry.get("evaluation", "")), MUTED, 780, y)
 
+    def draw_options_overlay(self) -> None:
+        self.draw_overlay_panel(260, 120, 760, 440)
+        self.blit(self.large_font, "Options", TEXT, 330, 162)
+        self.blit(self.small_font, "O / Backspace / Esc return", ACCENT, 690, 180)
+
+        rows = [
+            ("1", "Sound effects", self.setting_label("sound_enabled")),
+            ("2", "Floating text", self.setting_label("floating_text_enabled")),
+            ("3", "Clear local data", "confirm"),
+        ]
+        for index, (shortcut, label, value) in enumerate(rows):
+            y = 250 + index * 72
+            rect = pygame.Rect(330, y - 12, 620, 50)
+            pygame.draw.rect(self.screen, BG, rect, border_radius=14)
+            pygame.draw.rect(self.screen, GRID, rect, 1, border_radius=14)
+            self.blit(self.font, shortcut, ACCENT, 354, y)
+            self.blit(self.font, label, TEXT, 402, y)
+            value_color = RED if value == "confirm" else GREEN
+            self.blit(self.small_font, value, value_color, 790, y + 4)
+
+        self.blit(self.small_font, "Settings are saved locally. No account or network is used.", MUTED, 330, 492)
+
+    def setting_label(self, key: str) -> str:
+        return "on" if self.setting_enabled(key) else "off"
+
+    def draw_confirm_reset_overlay(self) -> None:
+        self.draw_overlay_panel(300, 190, 680, 300)
+        self.blit(self.large_font, "Clear Local Data?", TEXT, 360, 236)
+        self.blit(self.font, "This resets achievements, cosmetics, best time, and history.", MUTED, 360, 318)
+        self.blit(self.font, "Press Y to clear everything, or N / Esc to cancel.", MUTED, 360, 360)
+        self.blit(self.small_font, "This only affects local save data on this computer.", ACCENT, 360, 424)
+
     def draw_level_up_overlay(self) -> None:
         self.draw_overlay_panel(140, 120, 1000, 480)
         self.blit(self.large_font, "New Insight", TEXT, 200, 170)

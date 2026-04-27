@@ -75,6 +75,11 @@ class InputTest(unittest.TestCase):
         self.assertFalse(self.game.handle_keydown(pygame.K_h))
         self.assertEqual("title", self.game.state)
 
+        self.game.menu_return_state = "title"
+        self.game.state = "options"
+        self.assertFalse(self.game.handle_keydown(pygame.K_o))
+        self.assertEqual("title", self.game.state)
+
     def test_handle_keydown_shared_menu_shortcuts(self) -> None:
         self.game.state = "title"
 
@@ -95,6 +100,32 @@ class InputTest(unittest.TestCase):
         self.assertFalse(self.game.handle_keydown(pygame.K_h))
         self.assertEqual("history", self.game.state)
         self.assertEqual("title", self.game.menu_return_state)
+
+        self.game.state = "title"
+        self.assertFalse(self.game.handle_keydown(pygame.K_o))
+        self.assertEqual("options", self.game.state)
+        self.assertEqual("title", self.game.menu_return_state)
+
+    def test_handle_keydown_options_and_confirm_reset(self) -> None:
+        self.game.state = "options"
+
+        self.assertFalse(self.game.handle_keydown(pygame.K_1))
+        self.assertFalse(self.game.progression["settings"]["sound_enabled"])
+
+        self.assertFalse(self.game.handle_keydown(pygame.K_2))
+        self.assertFalse(self.game.progression["settings"]["floating_text_enabled"])
+
+        self.assertFalse(self.game.handle_keydown(pygame.K_3))
+        self.assertEqual("confirm_reset", self.game.state)
+
+        self.assertFalse(self.game.handle_keydown(pygame.K_n))
+        self.assertEqual("options", self.game.state)
+
+        self.assertFalse(self.game.handle_keydown(pygame.K_3))
+        self.game.progression["achievements"]["first_deploy"]["unlocked"] = True
+        self.assertFalse(self.game.handle_keydown(pygame.K_y))
+        self.assertEqual("options", self.game.state)
+        self.assertFalse(self.game.progression["achievements"]["first_deploy"]["unlocked"])
 
     def test_handle_keydown_game_over_menu_and_quick_restart(self) -> None:
         self.game.state = "game_over"

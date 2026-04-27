@@ -16,8 +16,11 @@ class InputRuntime(Protocol):
     selected_difficulty: str
     level_choices: list
 
+    def clear_local_data(self) -> None: ...
     def persist_progression_snapshot(self) -> None: ...
     def play_sound(self, key: str) -> None: ...
+    def toggle_sound(self) -> None: ...
+    def toggle_floating_text(self) -> None: ...
     def cycle_badge(self) -> None: ...
     def cycle_skin(self) -> None: ...
     def cycle_patch_theme(self) -> None: ...
@@ -29,6 +32,12 @@ class InputRuntime(Protocol):
 def handle_keydown(game: InputRuntime, key: int) -> bool:
     if game.state in {"achievements", "history"}:
         handle_progress_overlay_input(game, key)
+        return False
+    if game.state == "options":
+        handle_options_input(game, key)
+        return False
+    if game.state == "confirm_reset":
+        handle_confirm_reset_input(game, key)
         return False
     if game.state in {"help", "about"}:
         handle_info_input(game, key)
@@ -52,8 +61,26 @@ def handle_keydown(game: InputRuntime, key: int) -> bool:
 
 
 def handle_progress_overlay_input(game: InputRuntime, key: int) -> None:
-    if key == pygame.K_ESCAPE or key in (pygame.K_a, pygame.K_h, pygame.K_BACKSPACE):
+    if key == pygame.K_ESCAPE or key in (pygame.K_a, pygame.K_h, pygame.K_o, pygame.K_BACKSPACE):
         game.state = game.menu_return_state
+
+
+def handle_options_input(game: InputRuntime, key: int) -> None:
+    if key == pygame.K_ESCAPE or key in (pygame.K_o, pygame.K_BACKSPACE):
+        game.state = game.menu_return_state
+    elif key in (pygame.K_1, pygame.K_KP1):
+        game.toggle_sound()
+    elif key in (pygame.K_2, pygame.K_KP2):
+        game.toggle_floating_text()
+    elif key in (pygame.K_3, pygame.K_KP3):
+        game.state = "confirm_reset"
+
+
+def handle_confirm_reset_input(game: InputRuntime, key: int) -> None:
+    if key == pygame.K_y:
+        game.clear_local_data()
+    elif key in (pygame.K_n, pygame.K_ESCAPE, pygame.K_BACKSPACE):
+        game.state = "options"
 
 
 def handle_info_input(game: InputRuntime, key: int) -> None:
@@ -86,6 +113,10 @@ def handle_shared_menu_input(game: InputRuntime, key: int) -> bool:
     if key == pygame.K_h:
         game.menu_return_state = game.state
         game.state = "history"
+        return True
+    if key == pygame.K_o:
+        game.menu_return_state = game.state
+        game.state = "options"
         return True
     if key == pygame.K_b:
         game.cycle_badge()

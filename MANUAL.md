@@ -218,6 +218,16 @@ Completed runs are stored locally in the same offline progression save.
 
 This is intentionally offline-first. It gives repeat runs more context without requiring accounts, servers, or a network leaderboard.
 
+### Options
+
+The options page can be opened with `O` from the title or game-over screen.
+
+- `1`: toggle sound effects
+- `2`: toggle floating text feedback
+- `3`: open the clear-local-data confirmation
+
+Clearing local data resets achievements, cosmetics, best time, run history, and saved settings on this computer. The confirmation requires `Y`; `N`, `Esc`, or `Backspace` cancels it.
+
 ### Pause And Moment-To-Moment Feedback
 
 The run can now be paused with `P`.

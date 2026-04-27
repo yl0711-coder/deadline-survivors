@@ -56,7 +56,7 @@ class RendererMixin(OverlayRendererMixin):
         self.draw_projectiles()
         self.draw_enemies()
         self.draw_player_effects()
-        if self.state not in {"title", "achievements", "history", "game_over"}:
+        if self.state not in {"title", "achievements", "history", "options", "confirm_reset", "game_over"}:
             self.draw_hud()
             self.draw_floating_texts()
 
@@ -176,6 +176,10 @@ class RendererMixin(OverlayRendererMixin):
             self.draw_achievements_overlay()
         elif self.state == "history":
             self.draw_history_overlay()
+        elif self.state == "options":
+            self.draw_options_overlay()
+        elif self.state == "confirm_reset":
+            self.draw_confirm_reset_overlay()
         elif self.state == "level_up":
             self.draw_level_up_overlay()
         elif self.state == "paused":
