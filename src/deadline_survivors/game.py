@@ -1622,45 +1622,56 @@ class Game:
 
     def pick_level_choices(self) -> list[Upgrade]:
         """Pick three distinct upgrade choices with light contextual weighting."""
+        weighted = self.weighted_upgrade_pool()
+        choices = self.pick_unique_upgrades(weighted, 3)
+        self.fill_upgrade_choices(choices, 3)
+        return choices
+
+    def weighted_upgrade_pool(self) -> list[Upgrade]:
         weighted: list[Upgrade] = []
         for upgrade in UPGRADES:
-            weight = 1
-            if upgrade.key in {"damage", "projectiles", "speed"} and self.level <= 3:
-                weight += 2
-            if upgrade.key == "projectiles" and self.projectile_count >= 5:
-                weight = 1
-            if upgrade.key == "shield" and self.player_hp < self.player_max_hp * 0.45:
-                weight += 2
-            if upgrade.key == "pulse" and self.level >= 3:
-                weight += 1
-            if upgrade.key == "recovery" and self.level >= 4:
-                weight += 1
-            if upgrade.key == "pierce" and self.level >= 4:
-                weight += 1
-            if upgrade.key == "chain" and self.level >= 3:
-                weight += 2
-            if upgrade.key == "drone" and self.level >= 4:
-                weight += 2
-            if upgrade.key == "failsafe" and self.player_hp < self.player_max_hp * 0.55:
-                weight += 2
-            if upgrade.key == "overclock" and self.level >= 5:
-                weight += 2
-            weighted.extend([upgrade] * weight)
+            weighted.extend([upgrade] * self.upgrade_choice_weight(upgrade))
+        return weighted
 
+    def upgrade_choice_weight(self, upgrade: Upgrade) -> int:
+        weight = 1
+        if upgrade.key in {"damage", "projectiles", "speed"} and self.level <= 3:
+            weight += 2
+        if upgrade.key == "projectiles" and self.projectile_count >= 5:
+            weight = 1
+        if upgrade.key == "shield" and self.player_hp < self.player_max_hp * 0.45:
+            weight += 2
+        if upgrade.key == "pulse" and self.level >= 3:
+            weight += 1
+        if upgrade.key == "recovery" and self.level >= 4:
+            weight += 1
+        if upgrade.key == "pierce" and self.level >= 4:
+            weight += 1
+        if upgrade.key == "chain" and self.level >= 3:
+            weight += 2
+        if upgrade.key == "drone" and self.level >= 4:
+            weight += 2
+        if upgrade.key == "failsafe" and self.player_hp < self.player_max_hp * 0.55:
+            weight += 2
+        if upgrade.key == "overclock" and self.level >= 5:
+            weight += 2
+        return weight
+
+    def pick_unique_upgrades(self, weighted: list[Upgrade], count: int) -> list[Upgrade]:
         choices: list[Upgrade] = []
         pool = weighted[:]
-        while pool and len(choices) < 3:
+        while pool and len(choices) < count:
             candidate = choice(pool)
             if candidate not in choices:
                 choices.append(candidate)
             pool = [item for item in pool if item.key != candidate.key]
+        return choices
 
-        while len(choices) < 3:
+    def fill_upgrade_choices(self, choices: list[Upgrade], count: int) -> None:
+        while len(choices) < count:
             fallback = choice(UPGRADES)
             if fallback not in choices:
                 choices.append(fallback)
-
-        return choices
 
     def current_run_evaluation(self) -> tuple[str, str, list[str]]:
         tags: list[str] = []
