@@ -73,6 +73,14 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - Linux
 - macOS
 
+推送 tag 后也会自动生成可下载的 Release zip 包：
+
+- `deadline-survivors-windows.zip`
+- `deadline-survivors-macos.zip`
+- `deadline-survivors-linux.zip`
+
+每个 zip 包里包含可运行程序、README 和手册。推送类似 `v0.2.0` 的 tag 后，GitHub Release 会自动附带这些文件。
+
 ## 操作方式
 
 - `WASD` 或方向键：移动

@@ -332,6 +332,14 @@ This repository includes CI builds for:
 - Linux
 - macOS
 
+Tagged releases also create three GitHub Release zip assets:
+
+- `deadline-survivors-windows.zip`
+- `deadline-survivors-macos.zip`
+- `deadline-survivors-linux.zip`
+
+Each zip contains the packaged binary plus README and manual files. Create and push a tag such as `v0.2.0` to publish these release assets.
+
 ## Test Strategy
 
 The project uses headless automated tests for the highest-risk runtime paths.

@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            package_name: deadline-survivors-linux
+            executable: deadline-survivors
+          - os: windows-latest
+            package_name: deadline-survivors-windows
+            executable: deadline-survivors.exe
+          - os: macos-latest
+            package_name: deadline-survivors-macos
+            executable: deadline-survivors
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Syntax check
+        run: python -m compileall src run_game.py
+
+      - name: Run headless tests
+        env:
+          SDL_VIDEODRIVER: dummy
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests
+
+      - name: Build binary
+        run: pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline-survivors run_game.py
+
+      - name: Prepare package
+        shell: bash
+        run: |
+          mkdir -p "package/${{ matrix.package_name }}"
+          cp "dist/${{ matrix.executable }}" "package/${{ matrix.package_name }}/"
+          if [ -d "dist/deadline-survivors.app" ]; then
+            cp -R "dist/deadline-survivors.app" "package/${{ matrix.package_name }}/"
+          fi
+          cp README.md README.zh-CN.md MANUAL.md "package/${{ matrix.package_name }}/"
+
+      - name: Create zip package
+        shell: bash
+        run: |
+          cd package
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a "../${{ matrix.package_name }}.zip" "${{ matrix.package_name }}"
+          else
+            zip -r "../${{ matrix.package_name }}.zip" "${{ matrix.package_name }}"
+          fi
+
+      - name: Upload release package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package_name }}
+          path: ${{ matrix.package_name }}.zip
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download release packages
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*.zip
