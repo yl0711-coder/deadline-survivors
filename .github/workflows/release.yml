@@ -20,7 +20,7 @@ jobs:
           - os: windows-latest
             package_name: deadline-survivors-windows
             executable: deadline-survivors.exe
-          - os: macos-13
+          - os: macos-15-intel
             package_name: deadline-survivors-macos-intel
             executable: deadline-survivors
           - os: macos-latest

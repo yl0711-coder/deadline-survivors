@@ -76,7 +76,7 @@ Tagged releases also build downloadable zip packages:
 - `deadline-survivors-macos-apple-silicon.zip`
 - `deadline-survivors-linux.zip`
 
-Use `macos-intel` for Intel Macs and `macos-apple-silicon` for M1 / M2 / M3 / M4 Macs. Each package contains the runnable game binary plus the README files and manual. Push a tag like `v0.2.1` to create a GitHub Release with these assets.
+Use `macos-intel` for Intel Macs and `macos-apple-silicon` for M1 / M2 / M3 / M4 Macs. Each package contains the runnable game binary plus the README files and manual. Push a tag like `v0.2.2` to create a GitHub Release with these assets.
 
 ## Controls
 

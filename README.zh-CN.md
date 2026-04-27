@@ -80,7 +80,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - `deadline-survivors-macos-apple-silicon.zip`
 - `deadline-survivors-linux.zip`
 
-Intel 芯片 Mac 下载 `macos-intel`，M1 / M2 / M3 / M4 这类 Apple Silicon Mac 下载 `macos-apple-silicon`。每个 zip 包里包含可运行程序、README 和手册。推送类似 `v0.2.1` 的 tag 后，GitHub Release 会自动附带这些文件。
+Intel 芯片 Mac 下载 `macos-intel`，M1 / M2 / M3 / M4 这类 Apple Silicon Mac 下载 `macos-apple-silicon`。每个 zip 包里包含可运行程序、README 和手册。推送类似 `v0.2.2` 的 tag 后，GitHub Release 会自动附带这些文件。
 
 ## 操作方式
 
