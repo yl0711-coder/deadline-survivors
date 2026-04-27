@@ -9,3 +9,4 @@ build/
 .venv/
 .pyinstaller/
 .deadline_survivors/
+测试结果/
