@@ -2338,7 +2338,13 @@ class Game:
         self.draw_overlay_panel(150, 70, 980, 590)
         self.blit(self.large_font, "How To Play", TEXT, 210, 108)
         self.blit(self.small_font, "Up / Down scroll   |   Esc back", MUTED, 780, 126)
+        lines = self.help_overlay_lines()
+        start = min(self.help_scroll, max(0, len(lines) - 16))
+        self.help_scroll = start
+        self.draw_help_lines(lines[start : start + 16])
+        self.draw_help_scrollbar(start, len(lines))
 
+    def help_overlay_lines(self) -> list[tuple[str, str]]:
         content = [
             ("Controls", [
                 "WASD or Arrow Keys: move the developer.",
@@ -2375,10 +2381,9 @@ class Game:
             for entry in entries:
                 lines.append(("body", entry))
             lines.append(("space", ""))
+        return lines
 
-        start = min(self.help_scroll, max(0, len(lines) - 16))
-        self.help_scroll = start
-        visible = lines[start : start + 16]
+    def draw_help_lines(self, visible: list[tuple[str, str]]) -> None:
         y = 178
         for kind, text in visible:
             if kind == "heading":
@@ -2390,7 +2395,8 @@ class Game:
             else:
                 y += 10
 
-        ratio = start / max(1, len(lines) - 16)
+    def draw_help_scrollbar(self, start: int, line_count: int) -> None:
+        ratio = start / max(1, line_count - 16)
         bar = pygame.Rect(1080, 176, 8, 410)
         pygame.draw.rect(self.screen, GRID, bar, border_radius=999)
         pygame.draw.rect(
