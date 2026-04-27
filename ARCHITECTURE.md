@@ -18,7 +18,8 @@ The desktop launcher is intentionally thin:
 | Module | Responsibility |
 | --- | --- |
 | `src/deadline_survivors/game.py` | Public entrypoint and compatibility exports. Keep this file thin. |
-| `src/deadline_survivors/modules/runtime.py` | Game lifecycle, pygame setup, base run state, frame orchestration, and top-level run finalization. |
+| `src/deadline_survivors/modules/runtime.py` | Game lifecycle, pygame setup, frame orchestration, and top-level run finalization. |
+| `src/deadline_survivors/modules/run_state.py` | Run-local state initialization: menus, player stats, combat defaults, directors, build state, feedback, stats, and runtime collections. |
 | `src/deadline_survivors/modules/input.py` | Keyboard input, title menu, game-over menu, pause, help/about navigation, and level-up choice selection. |
 | `src/deadline_survivors/modules/renderer.py` | All drawing code: world, player, enemies, HUD, overlays, achievements, level-up, and game-over screen. |
 | `src/deadline_survivors/modules/progression.py` | Cosmetics, upgrades, XP level choices, achievements, run evaluation, and progression persistence hooks. |
@@ -49,6 +50,7 @@ The desktop launcher is intentionally thin:
 | Change the HUD, player visuals, enemy visuals, or overlay screens | `modules/renderer.py`. |
 | Change save data shape | `storage.py` plus tests for migration/default behavior. |
 | Change startup, packaged binary entry, or smoke-test behavior | `run_game.py` or the thin `game.py` entrypoint. |
+| Change initial run defaults or reset behavior | `modules/run_state.py`. |
 
 ## Design Rules
 
@@ -75,4 +77,4 @@ SDL_VIDEODRIVER=dummy .venv/bin/python run_game.py --smoke-test
 
 ## Current Status
 
-The original monolithic `game.py` has been reduced to a thin compatibility entrypoint. Runtime behavior is split across input, renderer, progression, combat, director, and player-system modules. `runtime.py` still owns base state initialization and frame orchestration, which is acceptable for now, but future refactors can split reset-state initialization if it becomes an active maintenance point.
+The original monolithic `game.py` has been reduced to a thin compatibility entrypoint. Runtime behavior is split across input, renderer, progression, combat, director, player-system, and run-state modules. `runtime.py` now stays focused on pygame lifecycle, frame orchestration, and run finalization.
