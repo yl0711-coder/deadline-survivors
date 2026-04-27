@@ -57,6 +57,7 @@ from ..state_factory import make_enemy_state, make_hazard, make_outage_state, ma
 from ..storage import load_best_time, load_progression, save_best_time, save_progression
 from ..ui import draw_bar, draw_translucent_rect, wrap_text
 from ..ui_screens import draw_menu_option, draw_title_overlay, draw_title_scene
+from . import input as input_module
 
 
 def create_font(size: int, *, bold: bool = False) -> pygame.font.Font:
@@ -403,125 +404,36 @@ class Game:
             pygame.display.flip()
 
     def handle_keydown(self, key: int) -> bool:
-        if self.state == "achievements":
-            self.handle_achievements_input(key)
-            return False
-        if self.state in {"help", "about"}:
-            self.handle_info_input(key)
-            return False
-        if key == pygame.K_ESCAPE:
-            self.persist_progression_snapshot()
-            return True
-        if self.state in {"playing", "paused"} and key == pygame.K_p:
-            self.state = "paused" if self.state == "playing" else "playing"
-            self.play_sound("pause")
-            return False
-        if self.state == "title" and self.handle_title_input(key):
-            return False
-        if self.state in {"title", "game_over"} and self.handle_shared_menu_input(key):
-            return False
-        if self.state == "game_over" and self.handle_game_over_input(key):
-            return False
-        if self.state == "level_up":
-            self.handle_level_up_input(key)
-        return False
+        return input_module.handle_keydown(self, key)
 
     def handle_achievements_input(self, key: int) -> None:
-        if key == pygame.K_ESCAPE or key in (pygame.K_a, pygame.K_BACKSPACE):
-            self.state = self.menu_return_state
+        input_module.handle_achievements_input(self, key)
 
     def handle_info_input(self, key: int) -> None:
-        if key == pygame.K_ESCAPE:
-            self.state = "title"
-        elif self.state == "help" and key == pygame.K_DOWN:
-            self.help_scroll += 1
-        elif self.state == "help" and key == pygame.K_UP:
-            self.help_scroll = max(self.help_scroll - 1, 0)
+        input_module.handle_info_input(self, key)
 
     def handle_title_input(self, key: int) -> bool:
-        if key == pygame.K_UP:
-            self.title_menu_index = (self.title_menu_index - 1) % 3
-            return True
-        if key == pygame.K_DOWN:
-            self.title_menu_index = (self.title_menu_index + 1) % 3
-            return True
-        if key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
-            self.activate_title_menu_item()
-            return True
-        return False
+        return input_module.handle_title_input(self, key)
 
     def handle_shared_menu_input(self, key: int) -> bool:
-        if key == pygame.K_a:
-            self.menu_return_state = self.state
-            self.state = "achievements"
-            return True
-        if key == pygame.K_b:
-            self.cycle_badge()
-            return True
-        if key == pygame.K_s:
-            self.cycle_skin()
-            return True
-        if key == pygame.K_t:
-            self.cycle_patch_theme()
-            return True
-        if key in (pygame.K_1, pygame.K_KP1):
-            self.selected_difficulty = "casual"
-        elif key in (pygame.K_2, pygame.K_KP2):
-            self.selected_difficulty = "normal"
-        elif key in (pygame.K_3, pygame.K_KP3):
-            self.selected_difficulty = "crunch"
-        else:
-            return False
-        return True
+        return input_module.handle_shared_menu_input(self, key)
 
     def handle_game_over_input(self, key: int) -> bool:
-        if key == pygame.K_LEFT:
-            self.game_over_menu_index = (self.game_over_menu_index - 1) % 3
-            return True
-        if key == pygame.K_RIGHT:
-            self.game_over_menu_index = (self.game_over_menu_index + 1) % 3
-            return True
-        if key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-            self.activate_game_over_menu_item()
-            return True
-        if key == pygame.K_SPACE:
-            self.start_run()
-            return True
-        return False
+        return input_module.handle_game_over_input(self, key)
 
     def handle_level_up_input(self, key: int) -> None:
-        if key in (pygame.K_1, pygame.K_KP1):
-            self.pick_choice(0)
-        elif key in (pygame.K_2, pygame.K_KP2):
-            self.pick_choice(1)
-        elif key in (pygame.K_3, pygame.K_KP3):
-            self.pick_choice(2)
+        input_module.handle_level_up_input(self, key)
 
     def pick_choice(self, index: int) -> None:
-        if 0 <= index < len(self.level_choices):
-            self.choose_upgrade(self.level_choices[index].key)
-            self.level_choices = []
-            self.state = "playing"
+        input_module.pick_choice(self, index)
 
     def activate_title_menu_item(self) -> None:
         """Run the currently highlighted title-menu action."""
-        if self.title_menu_index == 0:
-            self.start_run()
-        elif self.title_menu_index == 1:
-            self.help_scroll = 0
-            self.state = "help"
-        elif self.title_menu_index == 2:
-            self.state = "about"
+        input_module.activate_title_menu_item(self)
 
     def activate_game_over_menu_item(self) -> None:
         """Run the currently highlighted game-over action."""
-        if self.game_over_menu_index == 0:
-            self.start_run()
-        elif self.game_over_menu_index == 1:
-            self.menu_return_state = "game_over"
-            self.state = "achievements"
-        elif self.game_over_menu_index == 2:
-            self.reset()
+        input_module.activate_game_over_menu_item(self)
 
     def update(self, dt: float) -> None:
         """Advance one gameplay frame while the run is active."""
