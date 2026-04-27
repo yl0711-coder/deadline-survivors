@@ -1508,49 +1508,68 @@ class Game:
         """Apply immediate or temporary effects from picked-up powerups."""
         self.stats["powerups"] += 1
         scaling = self.run_scaling_bonus()
-        if kind == "heal":
-            heal_amount = 28.0 * scaling
-            recovered = min(heal_amount, self.player_max_hp - self.player_hp)
-            self.player_hp = min(self.player_max_hp, self.player_hp + heal_amount)
-            self.play_sound("pickup")
-            self.spawn_floating_text(
-                self.player_x,
-                self.player_y - 44,
-                f"Coffee +{int(recovered)} HP",
-                GREEN,
-            )
-        elif kind == "bomb":
-            bomb_damage = 92.0 * scaling
-            defeated = 0
-            survivors = []
-            for enemy in self.enemies:
-                enemy["hp"] -= bomb_damage
-                if enemy["hp"] <= 0:
-                    defeated += 1
-                    self.resolve_enemy(
-                        enemy,
-                        0.7 * scaling,
-                        allow_powerup_drop=False,
-                        allow_split=False,
+        handlers = {
+            "heal": self.apply_heal_powerup,
+            "bomb": self.apply_bomb_powerup,
+            "haste": self.apply_haste_powerup,
+        }
+        handler = handlers.get(kind)
+        if handler:
+            handler(scaling)
+
+    def apply_heal_powerup(self, scaling: float) -> None:
+        heal_amount = 28.0 * scaling
+        recovered = min(heal_amount, self.player_max_hp - self.player_hp)
+        self.player_hp = min(self.player_max_hp, self.player_hp + heal_amount)
+        self.play_sound("pickup")
+        self.spawn_floating_text(
+            self.player_x,
+            self.player_y - 44,
+            f"Coffee +{int(recovered)} HP",
+            GREEN,
+        )
+
+    def apply_bomb_powerup(self, scaling: float) -> None:
+        defeated = self.damage_enemies_with_bomb(92.0 * scaling, scaling)
+        self.kill_flash = 0.6
+        self.play_sound("crisis")
+        self.trigger_screen_shake(0.2, 5.5)
+        self.spawn_floating_text(
+            self.player_x,
+            self.player_y - 52,
+            f"Refactor x{defeated}",
+            ACCENT,
+        )
+
+    def damage_enemies_with_bomb(self, bomb_damage: float, scaling: float) -> int:
+        defeated = 0
+        survivors = []
+        for enemy in self.enemies:
+            enemy["hp"] -= bomb_damage
+            if enemy["hp"] <= 0:
+                defeated += 1
+                self.resolve_enemy(
+                    enemy,
+                    0.7 * scaling,
+                    allow_powerup_drop=False,
+                    allow_split=False,
+                )
+            else:
+                survivors.append(enemy)
+                if enemy["type"].name == "Outage":
+                    self.spawn_floating_text(
+                        enemy["x"] - 28,
+                        enemy["y"] - 52,
+                        "Outage damaged",
+                        ACCENT,
                     )
-                else:
-                    survivors.append(enemy)
-                    if enemy["type"].name == "Outage":
-                        self.spawn_floating_text(enemy["x"] - 28, enemy["y"] - 52, "Outage damaged", ACCENT)
-            self.enemies = survivors
-            self.kill_flash = 0.6
-            self.play_sound("crisis")
-            self.trigger_screen_shake(0.2, 5.5)
-            self.spawn_floating_text(
-                self.player_x,
-                self.player_y - 52,
-                f"Refactor x{defeated}",
-                ACCENT,
-            )
-        elif kind == "haste":
-            self.haste_timer = min(12.0, 7.0 * scaling)
-            self.play_sound("pickup")
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "CI Boost", BLUE)
+        self.enemies = survivors
+        return defeated
+
+    def apply_haste_powerup(self, scaling: float) -> None:
+        self.haste_timer = min(12.0, 7.0 * scaling)
+        self.play_sound("pickup")
+        self.spawn_floating_text(self.player_x, self.player_y - 44, "CI Boost", BLUE)
 
     def update_floating_texts(self, dt: float) -> None:
         remaining = []
