@@ -1674,6 +1674,11 @@ class Game:
                 choices.append(fallback)
 
     def current_run_evaluation(self) -> tuple[str, str, list[str]]:
+        tags = self.current_run_tags()
+        title, description, fallback_tags = self.current_run_evaluation_text()
+        return title, description, tags[:2] or fallback_tags
+
+    def current_run_tags(self) -> list[str]:
         tags: list[str] = []
         if self.max_momentum >= 0.8:
             tags.append("High Momentum")
@@ -1689,30 +1694,32 @@ class Game:
             tags.append("Chain Build")
         elif self.pulse_unlocked or self.overclock_level > 0:
             tags.append("Wave Cleaner")
+        return tags
 
+    def current_run_evaluation_text(self) -> tuple[str, str, list[str]]:
         if self.stats["outages_resolved"] >= 2:
             return (
                 "Outage Hunter",
                 "You treated production outages as the main objective and kept the run under control.",
-                tags[:2] or ["Boss Priority"],
+                ["Boss Priority"],
             )
         if self.stats["deploys"] >= 4:
             return (
                 "Deploy Specialist",
                 "You kept rotating into risky deploy windows and turned map pressure into growth.",
-                tags[:2] or ["Deploy Focus"],
+                ["Deploy Focus"],
             )
         if self.drone_count >= 2:
             return (
                 "Pair Programming Lead",
                 "This run leaned on support patches and felt more like coordinated repair work.",
-                tags[:2] or ["Support Build"],
+                ["Support Build"],
             )
         if self.chain_count >= 2 and (self.pierce > 0 or self.overclock_level > 0):
             return (
                 "Code Review Machine",
                 "One patch kept turning into more fixes as the build spread through clustered problems.",
-                tags[:2] or ["Chain Build"],
+                ["Chain Build"],
             )
         if self.stats["failsafe_triggers"] >= 2 or (
             self.stats["failsafe_triggers"] >= 1 and self.time_survived >= 240
@@ -1720,24 +1727,24 @@ class Game:
             return (
                 "Last-Minute Hero",
                 "This run survived repeated emergencies and kept shipping patches after near collapses.",
-                tags[:2] or ["Low HP Survivor"],
+                ["Low HP Survivor"],
             )
         if self.max_momentum >= 0.85 and self.stats["deploys"] >= 2:
             return (
                 "Patch Sprinter",
                 "You kept the run moving, stayed in flow, and converted mobility into steady growth.",
-                tags[:2] or ["High Momentum"],
+                ["High Momentum"],
             )
         if self.run_resolved_count() >= 90 and (self.pulse_unlocked or self.overclock_level > 0):
             return (
                 "Incident Cleaner",
                 "The build focused on cleaning waves quickly instead of only escaping them.",
-                tags[:2] or ["Wave Cleaner"],
+                ["Wave Cleaner"],
             )
         return (
             "Steady Maintainer",
             "You kept the system running without overcommitting to a single high-risk route.",
-            tags[:2] or ["Balanced Run"],
+            ["Balanced Run"],
         )
 
     def run_resolved_count(self) -> int:
