@@ -20,8 +20,11 @@ jobs:
           - os: windows-latest
             package_name: deadline-survivors-windows
             executable: deadline-survivors.exe
+          - os: macos-13
+            package_name: deadline-survivors-macos-intel
+            executable: deadline-survivors
           - os: macos-latest
-            package_name: deadline-survivors-macos
+            package_name: deadline-survivors-macos-apple-silicon
             executable: deadline-survivors
 
     runs-on: ${{ matrix.os }}

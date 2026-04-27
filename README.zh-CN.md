@@ -76,10 +76,11 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 推送 tag 后也会自动生成可下载的 Release zip 包：
 
 - `deadline-survivors-windows.zip`
-- `deadline-survivors-macos.zip`
+- `deadline-survivors-macos-intel.zip`
+- `deadline-survivors-macos-apple-silicon.zip`
 - `deadline-survivors-linux.zip`
 
-每个 zip 包里包含可运行程序、README 和手册。推送类似 `v0.2.0` 的 tag 后，GitHub Release 会自动附带这些文件。
+Intel 芯片 Mac 下载 `macos-intel`，M1 / M2 / M3 / M4 这类 Apple Silicon Mac 下载 `macos-apple-silicon`。每个 zip 包里包含可运行程序、README 和手册。推送类似 `v0.2.1` 的 tag 后，GitHub Release 会自动附带这些文件。
 
 ## 操作方式
 

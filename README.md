@@ -72,10 +72,11 @@ This repository includes a GitHub Actions workflow that builds artifacts on:
 Tagged releases also build downloadable zip packages:
 
 - `deadline-survivors-windows.zip`
-- `deadline-survivors-macos.zip`
+- `deadline-survivors-macos-intel.zip`
+- `deadline-survivors-macos-apple-silicon.zip`
 - `deadline-survivors-linux.zip`
 
-Each package contains the runnable game binary plus the README files and manual. Push a tag like `v0.2.0` to create a GitHub Release with these assets.
+Use `macos-intel` for Intel Macs and `macos-apple-silicon` for M1 / M2 / M3 / M4 Macs. Each package contains the runnable game binary plus the README files and manual. Push a tag like `v0.2.1` to create a GitHub Release with these assets.
 
 ## Controls
 

@@ -332,13 +332,14 @@ This repository includes CI builds for:
 - Linux
 - macOS
 
-Tagged releases also create three GitHub Release zip assets:
+Tagged releases create platform-specific GitHub Release zip assets:
 
 - `deadline-survivors-windows.zip`
-- `deadline-survivors-macos.zip`
+- `deadline-survivors-macos-intel.zip`
+- `deadline-survivors-macos-apple-silicon.zip`
 - `deadline-survivors-linux.zip`
 
-Each zip contains the packaged binary plus README and manual files. Create and push a tag such as `v0.2.0` to publish these release assets.
+Use `macos-intel` for Intel Macs and `macos-apple-silicon` for M1 / M2 / M3 / M4 Macs. Each zip contains the packaged binary plus README and manual files. Create and push a tag such as `v0.2.1` to publish these release assets.
 
 ## Test Strategy
 

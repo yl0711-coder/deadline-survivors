@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deadline-survivors"
-version = "0.2.0"
+version = "0.2.1"
 description = "A local Python arcade survival game about fixing bugs, dodging meetings, and surviving production outages."
 readme = "README.md"
 requires-python = ">=3.10"
