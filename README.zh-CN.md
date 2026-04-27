@@ -76,9 +76,14 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 ## 操作方式
 
 - `WASD` 或方向键：移动
-- `Space`：开始 / 继续
+- 标题页按 `Up` / `Down`：选择菜单项
+- 标题页按 `Enter` 或 `Space`：确认当前菜单项
+- 结算页按 `Left` / `Right`：选择重新开始、成就页或主菜单
+- 结算页按 `Enter`：确认当前操作
+- 结算页按 `Space`：快速重新开始
 - `1`、`2`、`3`：升级时选择选项
 - 在标题页 / 结算页按 `1`、`2`、`3`：选择难度
+- `How To Play` 页面：按 `Up` / `Down` 滚动，按 `Esc` 返回
 - 在标题页 / 结算页按 `A`：打开成就页
 - 在标题页 / 结算页按 `B`：切换已解锁 badge
 - 在标题页 / 结算页按 `S`：切换已解锁皮肤
@@ -98,6 +103,26 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - 升级并选择强化
 - 尽可能活得更久
 - 在不同压力阶段里调整自己的 build
+
+## 标题菜单
+
+标题页现在是更简洁的菜单，而不是把所有说明都塞在第一屏：
+
+- `Start Game`：使用当前难度开始游戏
+- `How To Play`：打开可滚动的玩法说明页，包含操作、升级和道具
+- `Game Story`：说明开发者、小怪、告警、需求膨胀和 deadline 压力这些设定
+
+标题页还包含一个小的游戏预览画面，让玩家在开始前能看出这是“开发者对抗线上压力”的生存游戏。
+
+## 结算菜单
+
+游戏结束页现在更像一个正式的结算界面，而不是密集统计列表：
+
+- 顶部显示存活时间、最高纪录、难度和本局评价
+- 中间卡片显示本局解决的压力数量、insight、deploy 次数和道具使用数
+- 底部菜单可以选择重新开始、查看成就或返回主菜单
+
+这样失败后画面更清爽，玩家也能更快决定下一步操作；详细成长信息则放到成就页里。
 
 ## Deploy Window 和 Momentum
 
@@ -145,27 +170,36 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - `Rollback Guard`：低血量时触发一次紧急稳定脉冲。
 - `Overclocked Build`：在 Overdrive 状态下，patch 命中会产生小范围爆炸。
 
-短期救场、临时爆发类效果仍然主要放在道具里，但升级池现在也开始包含更明显的机制型 build，让不同局之间的手感差异更大。
+短期救场、临时爆发类效果仍然主要放在道具里，但升级池现在也开始包含更明显的机制型 build，让不同局之间的手感差异更大。部分升级收益会随等级小幅提高，避免后期只有敌人变强、玩家成长跟不上的感觉。
 
 ## 道具
 
 敌人死亡时有概率掉落临时道具：
 
 - `Coffee Break`：回复一部分生命，不是回满
-- `Refactor Bomb`：清掉屏幕上的敌人，并掉落少量 insight 碎片
+- `Refactor Bomb`：造成全屏高额伤害，清掉大多数杂兵；Boss 可能存活，只有真正击败的敌人才会给奖励
 - `CI Boost`：临时降低 patch 冷却，让修复明显变快
 
 这样升级负责长期成长，道具负责即时爽感和救命时刻。
+道具效果也会随等级小幅提高，让中后期的 Coffee Break、Refactor Bomb 和 CI Boost 仍然有救场价值。
 
 ## 难度模式
 
 标题页和结算页现在支持三种难度：
 
-- `Casual`：压力更轻，敌人更温和
-- `Normal`：默认平衡
-- `Crunch`：刷怪更快，线上压力更大
+- `Easy`：压力更轻，敌人更温和
+- `Medium`：默认平衡
+- `Hard`：刷怪更快，线上压力更大
 
 难度会影响敌人血量、敌人伤害、刷怪节奏和 insight 收益。
+
+## 战斗 HUD
+
+游戏中的 HUD 现在改成紧凑半透明样式：
+
+- 左上角显示阶段、时间、等级、难度、最高纪录、HP、insight 和 momentum
+- 右上角只显示当前生效状态和简短控制提示
+- 玩家移动到 HUD 下方时，不会再被完全挡住
 
 ## 角色造型
 
@@ -207,7 +241,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - `First Patch Rush`：第一次进入 `Overdrive`
 - `First Deploy`：第一次完成 deploy
 - `First Outage`：第一次击败 `Production Outage`
-- `Crunch Survivor`：在 `Crunch` 难度存活 10 分钟
+- `Hard Survivor`：在 `Hard` 难度存活 10 分钟
 - `Deploy Addict`：单局完成 5 次 deploy
 - `Pair Flow`：拥有 2 个 `Pair Programmer`
 - `Review Cascade`：连锁 patch 命中 3 个目标
@@ -226,6 +260,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - 轻微屏幕震动：命中、炸弹、脉冲、危机事件时会更有冲击感
 - 暂停界面：长一点的试玩过程更容易中断和继续
 - `Outage` 出现时会显示独立血条和遭遇提示
+- 角色死亡时会有短暂爆炸反馈，随后进入结算报告
 
 ## 压力阶段
 

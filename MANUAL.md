@@ -17,15 +17,51 @@ The design goal is:
 
 Survive as long as possible while shipping patches, collecting insight, taking optional map objectives, and building a stronger developer.
 
+### Title Menu
+
+The title screen keeps the first view simple:
+
+- `Start Game`: starts a run
+- `How To Play`: opens a scrollable help page
+- `Game Story`: opens a short theme and premise page
+
+Use `Up` / `Down` to choose a menu item and `Enter` or `Space` to confirm it.
+
+The help page can be scrolled with `Up` / `Down` and closed with `Esc`.
+
+The title screen also shows a small preview scene with the developer, enemy pressure, and patch projectiles so the game premise is visible before the first run.
+
+### Game Over Menu
+
+The game-over screen is designed as a compact run report:
+
+- survival time, best run, difficulty, and run evaluation are shown first
+- four large cards summarize resolved pressure, insight, deploys, and powerups used
+- `Left` / `Right` selects restart, achievements, or main menu
+- `Enter` confirms the selected action
+- `Space` restarts immediately
+
+Detailed long-term progress is intentionally kept on the achievements page so the failure screen stays readable.
+
 ### Difficulty Selection
 
 The title screen and retry screen support three difficulty presets:
 
-- `Casual`: lower pressure and softer enemy stats
-- `Normal`: baseline balance
-- `Crunch`: higher pressure, tougher enemies, and tighter pacing
+- `Easy`: lower pressure and softer enemy stats
+- `Medium`: baseline balance
+- `Hard`: higher pressure, tougher enemies, and tighter pacing
 
 Difficulty currently affects enemy HP, enemy damage, spawn pace, and insight gain.
+
+### In-Run HUD
+
+The combat HUD is deliberately compact and translucent.
+
+- the left panel shows phase, time, level, difficulty, best time, HP, insight, and momentum
+- the right side shows only active status effects and short controls
+- the player can still be seen through the HUD if they move behind it
+
+This keeps the screen readable without turning the HUD into a hard obstacle during play.
 
 ### Enemies
 
@@ -109,10 +145,11 @@ Available upgrades:
 Enemies can drop temporary powerups:
 
 - `Coffee Break`: restores part of HP
-- `Refactor Bomb`: clears the current enemy wave and drops small insight shards
+- `Refactor Bomb`: deals heavy screen-wide damage, clears most regular enemies, and only rewards enemies it actually defeats
 - `CI Boost`: temporarily speeds up automatic patching
 
 These are intentionally separate from level-up choices. Powerups create recovery moments during action, while level-ups shape the build for the whole run.
+Powerups and several upgrade gains scale slightly with level so later runs can become harder without making the player feel flat.
 
 ### Player Visuals
 
@@ -144,6 +181,8 @@ When a run fails, the game shows a compact report with:
 - deploy windows completed
 - powerups used
 
+Before the report settles, the player death location shows a short burst effect. This is a visual feedback effect only and does not keep the screen shaking after the run ends.
+
 ### Local Achievements
 
 The current build includes a first batch of local achievements stored on disk.
@@ -151,7 +190,7 @@ The current build includes a first batch of local achievements stored on disk.
 - `First Patch Rush`
 - `First Deploy`
 - `First Outage`
-- `Crunch Survivor`
+- `Hard Survivor`
 - `Deploy Addict`
 - `Pair Flow`
 - `Review Cascade`
@@ -233,9 +272,11 @@ The current separation is by update and draw responsibility:
 
 - update methods mutate gameplay state, timers, collisions, and rewards
 - draw methods render the current state without changing gameplay decisions
+- title, help, about, achievements, playing, paused, level-up, and game-over are explicit screen states
 - level-up upgrades are run-long build changes
 - powerups are temporary or immediate effects
 - deploy windows and momentum are optional risk-reward systems
+- game-over effects use a small update path so short failure animations can finish after gameplay stops
 
 If the project grows, the first worthwhile refactor would be moving enemies, powerups, and objectives into small modules while keeping the public game loop unchanged.
 

@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
-from deadline_survivors.game import ACCENT, ENEMY_TYPES, GREEN, Game
+from deadline_survivors.game import ACCENT, ENEMY_TYPES, GREEN, OUTAGE_BOSS, Game
 from deadline_survivors.storage import load_progression
 
 
@@ -67,7 +67,16 @@ class GameTest(unittest.TestCase):
         self.assertGreaterEqual(self.game.overclock_level, 1)
 
     def test_draw_works_in_all_main_states(self) -> None:
-        for state in ("title", "playing", "level_up", "paused", "game_over", "achievements"):
+        for state in (
+            "title",
+            "help",
+            "about",
+            "playing",
+            "level_up",
+            "paused",
+            "game_over",
+            "achievements",
+        ):
             self.game.state = state
             if state == "game_over":
                 self.game.new_achievements = ["first_deploy"]
@@ -78,6 +87,29 @@ class GameTest(unittest.TestCase):
 
                     self.game.level_choices = UPGRADES[:3]
             self.game.draw()
+
+    def test_title_menu_can_open_help_and_about(self) -> None:
+        self.game.title_menu_index = 1
+        self.game.activate_title_menu_item()
+        self.assertEqual("help", self.game.state)
+
+        self.game.state = "title"
+        self.game.title_menu_index = 2
+        self.game.activate_title_menu_item()
+        self.assertEqual("about", self.game.state)
+
+    def test_game_over_menu_can_open_achievements_and_return_to_title(self) -> None:
+        self.game.state = "game_over"
+
+        self.game.game_over_menu_index = 1
+        self.game.activate_game_over_menu_item()
+        self.assertEqual("achievements", self.game.state)
+        self.assertEqual("game_over", self.game.menu_return_state)
+
+        self.game.state = "game_over"
+        self.game.game_over_menu_index = 2
+        self.game.activate_game_over_menu_item()
+        self.assertEqual("title", self.game.state)
 
     def test_short_update_loop_runs(self) -> None:
         self.game.start_run()
@@ -92,6 +124,37 @@ class GameTest(unittest.TestCase):
         self.game.check_level_up()
         self.assertEqual("level_up", self.game.state)
         self.assertEqual(3, len(self.game.level_choices))
+
+    def test_game_over_clears_screen_effect_state(self) -> None:
+        self.game.start_run()
+        self.game.shake_timer = 0.8
+        self.game.shake_strength = 4.0
+        self.game.hit_flash = 0.4
+        self.game.kill_flash = 0.3
+        self.game.level_flash = 0.2
+        self.game.floating_texts = [
+            {"x": 0, "y": 0, "text": "x", "color": (255, 255, 255), "ttl": 0.5, "rise": 18}
+        ]
+        self.game.player_hp = 0
+
+        self.game.update(1 / 60)
+
+        self.assertEqual("game_over", self.game.state)
+        self.assertEqual(1.0, self.game.death_burst_timer)
+        self.assertEqual(0.0, self.game.shake_timer)
+        self.assertEqual(0.0, self.game.shake_strength)
+        self.assertEqual(0.0, self.game.hit_flash)
+        self.assertEqual(0.0, self.game.kill_flash)
+        self.assertEqual(0.0, self.game.level_flash)
+        self.assertEqual([], self.game.floating_texts)
+
+    def test_game_over_death_burst_can_expire_without_playing_update(self) -> None:
+        self.game.state = "game_over"
+        self.game.death_burst_timer = 0.5
+
+        self.game.update_game_over_effects(0.6)
+
+        self.assertEqual(0.0, self.game.death_burst_timer)
 
     def test_long_headless_run_reaches_later_phase_or_game_over(self) -> None:
         self.game.start_run()
@@ -302,6 +365,89 @@ class GameTest(unittest.TestCase):
         self.assertEqual([], self.game.enemies)
         self.assertGreater(len(self.game.xp_shards), 0)
 
+    def test_enemy_insight_rewards_depend_on_enemy_type(self) -> None:
+        rewards = {
+            enemy_type.name: self.game.enemy_insight_value({"type": enemy_type})
+            for enemy_type in ENEMY_TYPES
+        }
+
+        self.assertEqual(3.0, rewards["Bug"])
+        self.assertEqual(4.0, rewards["Alert"])
+        self.assertEqual(6.0, rewards["Meeting"])
+        self.assertEqual(7.0, rewards["Scope Creep"])
+        self.assertGreater(self.game.enemy_insight_value({"type": OUTAGE_BOSS}), rewards["Scope Creep"])
+
+    def test_refactor_bomb_uses_discounted_enemy_insight_values(self) -> None:
+        self.game.start_run()
+        bug = next(enemy for enemy in ENEMY_TYPES if enemy.name == "Bug")
+        scope = next(enemy for enemy in ENEMY_TYPES if enemy.name == "Scope Creep")
+        self.game.enemies = [
+            {"type": bug, "x": 100.0, "y": 100.0, "hp": 18.0},
+            {"type": scope, "x": 140.0, "y": 100.0, "hp": 34.0},
+        ]
+
+        self.game.apply_powerup("bomb")
+
+        values = sorted(shard["value"] for shard in self.game.xp_shards)
+        self.assertAlmostEqual(2.1, values[0])
+        self.assertAlmostEqual(4.9, values[1])
+
+    def test_refactor_bomb_counts_resolved_enemies_but_does_not_delete_full_boss(self) -> None:
+        self.game.start_run()
+        bug = next(enemy for enemy in ENEMY_TYPES if enemy.name == "Bug")
+        alert = next(enemy for enemy in ENEMY_TYPES if enemy.name == "Alert")
+        self.game.enemies = [
+            {"type": bug, "x": 100.0, "y": 100.0, "hp": 18.0},
+            {"type": alert, "x": 140.0, "y": 100.0, "hp": 12.0},
+            {"type": OUTAGE_BOSS, "x": 180.0, "y": 100.0, "hp": 280.0},
+        ]
+
+        self.game.apply_powerup("bomb")
+
+        self.assertEqual(1, self.game.stats["bugs_fixed"])
+        self.assertEqual(1, self.game.stats["alerts_silenced"])
+        self.assertEqual(0, self.game.stats["outages_resolved"])
+        self.assertFalse(self.game.progression["achievements"]["first_outage"]["unlocked"])
+        self.assertEqual(1, len(self.game.enemies))
+        self.assertEqual("Outage", self.game.enemies[0]["type"].name)
+        self.assertEqual(188.0, self.game.enemies[0]["hp"])
+
+    def test_refactor_bomb_can_finish_low_health_outage(self) -> None:
+        self.game.start_run()
+        self.game.enemies = [
+            {"type": OUTAGE_BOSS, "x": 180.0, "y": 100.0, "hp": 40.0},
+        ]
+
+        self.game.apply_powerup("bomb")
+
+        self.assertEqual([], self.game.enemies)
+        self.assertEqual(1, self.game.stats["outages_resolved"])
+        self.assertTrue(self.game.progression["achievements"]["first_outage"]["unlocked"])
+
+    def test_refactor_bomb_suppresses_scope_creep_split(self) -> None:
+        self.game.start_run()
+        scope = next(enemy for enemy in ENEMY_TYPES if enemy.name == "Scope Creep")
+        self.game.enemies = [
+            {"type": scope, "x": 140.0, "y": 100.0, "hp": 34.0, "split_depth": 1},
+        ]
+
+        self.game.apply_powerup("bomb")
+
+        self.assertEqual([], self.game.enemies)
+        self.assertEqual(1, self.game.stats["scope_trimmed"])
+        self.assertFalse(any(enemy["type"].name == "Bugling" for enemy in self.game.enemies))
+
+    def test_powerups_scale_with_later_levels(self) -> None:
+        self.game.start_run()
+        self.game.level = 10
+        self.game.player_hp = 40
+        self.game.apply_powerup("heal")
+
+        self.assertGreater(self.game.player_hp, 68)
+
+        self.game.apply_powerup("haste")
+        self.assertGreater(self.game.haste_timer, 7.0)
+
     def test_powerup_pickup_is_consumed_on_contact(self) -> None:
         self.game.start_run()
         self.game.spawn_powerup("haste", self.game.player_x, self.game.player_y)
@@ -473,6 +619,22 @@ class GameTest(unittest.TestCase):
 
         self.assertEqual("Pair Programming Lead", title)
         self.assertIn("Support Build", tags)
+
+    def test_resolved_counts_include_all_enemy_pressure_types(self) -> None:
+        self.game.start_run()
+        self.game.stats["bugs_fixed"] = 2
+        self.game.stats["meetings_dodged"] = 3
+        self.game.stats["alerts_silenced"] = 4
+        self.game.stats["scope_trimmed"] = 5
+        self.game.stats["outages_resolved"] = 1
+        self.game.progression["totals"]["bugs_fixed"] = 20
+        self.game.progression["totals"]["meetings_dodged"] = 30
+        self.game.progression["totals"]["alerts_silenced"] = 40
+        self.game.progression["totals"]["scope_trimmed"] = 50
+        self.game.progression["totals"]["outages_resolved"] = 6
+
+        self.assertEqual(15, self.game.run_resolved_count())
+        self.assertEqual(146, self.game.total_resolved_count())
 
     def test_unlock_achievement_marks_progression_once(self) -> None:
         self.game.start_run()

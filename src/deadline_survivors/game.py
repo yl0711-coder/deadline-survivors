@@ -109,11 +109,11 @@ PHASES = [
 ]
 
 DIFFICULTIES = [
-    Difficulty("casual", "Casual", "Softer pressure, more breathing room.", 0.84, 0.82, 1.2, 1.12),
-    Difficulty("normal", "Normal", "Default pacing for most runs.", 1.0, 1.0, 1.0, 1.0),
+    Difficulty("casual", "Easy", "Softer pressure, more breathing room.", 0.84, 0.82, 1.2, 1.12),
+    Difficulty("normal", "Medium", "Default pacing for most runs.", 1.0, 1.0, 1.0, 1.0),
     Difficulty(
         "crunch",
-        "Crunch",
+        "Hard",
         "Faster waves and harsher production pain.",
         1.18,
         1.16,
@@ -126,7 +126,7 @@ ACHIEVEMENT_DEFS = {
     "first_overdrive": "First Patch Rush",
     "first_deploy": "First Deploy",
     "first_outage": "First Outage",
-    "crunch_survivor": "Crunch Survivor",
+    "crunch_survivor": "Hard Survivor",
     "deploy_addict": "Deploy Addict",
     "pair_flow": "Pair Flow",
     "review_cascade": "Review Cascade",
@@ -149,7 +149,7 @@ ACHIEVEMENT_GROUPS = [
         ACCENT,
         "Single-run goals that push riskier play.",
         [
-            ("crunch_survivor", "Survive 10 minutes on Crunch difficulty."),
+            ("crunch_survivor", "Survive 10 minutes on Hard difficulty."),
             ("deploy_addict", "Complete 5 deploys in one run."),
         ],
     ),
@@ -214,7 +214,7 @@ PLAYER_SKINS = {
         "screen": PURPLE,
     },
     "crunch": {
-        "label": "Crunch Mode",
+        "label": "Hard Mode",
         "unlock": "crunch_survivor",
         "body": (104, 151, 113),
         "outline": (161, 226, 173),
@@ -231,7 +231,7 @@ PLAYER_BADGES = {
     "deployer": {"label": "Deploy Runner", "unlock": "first_deploy", "color": GREEN},
     "hunter": {"label": "Outage Hunter", "unlock": "first_outage", "color": OUTAGE_COLOR},
     "reviewer": {"label": "Review Machine", "unlock": "review_cascade", "color": PURPLE},
-    "survivor": {"label": "Crunch Survivor", "unlock": "crunch_survivor", "color": ACCENT},
+    "survivor": {"label": "Hard Survivor", "unlock": "crunch_survivor", "color": ACCENT},
 }
 
 PATCH_THEMES = {
@@ -267,12 +267,17 @@ class Game:
         self.shake_strength = 0.0
         self.init_audio()
         self.menu_return_state = "title"
+        self.title_menu_index = 0
+        self.game_over_menu_index = 0
+        self.help_scroll = 0
         self.reset()
 
     def reset(self) -> None:
         """Reset all run-local state before returning to title or starting."""
         self.state = "title"
         self.menu_return_state = "title"
+        self.help_scroll = 0
+        self.game_over_menu_index = 0
         self.time_survived = 0.0
         self.level = 1
         self.xp = 0.0
@@ -341,6 +346,9 @@ class Game:
         self.hit_flash = 0.0
         self.level_flash = 0.0
         self.kill_flash = 0.0
+        self.death_burst_timer = 0.0
+        self.death_burst_x = self.player_x
+        self.death_burst_y = self.player_y
         self.new_achievements: list[str] = []
         self.floating_texts: list[dict] = []
         self.enemies: list[dict] = []
@@ -490,11 +498,13 @@ class Game:
 
     def choose_upgrade(self, key: str) -> None:
         """Apply a run-long level-up upgrade."""
+        scaling = self.run_scaling_bonus()
         if key == "damage":
-            self.projectile_damage += 8
-            self.spawn_floating_text(self.player_x, self.player_y - 44, "+8 damage", ACCENT)
+            gain = int(8 * scaling)
+            self.projectile_damage += gain
+            self.spawn_floating_text(self.player_x, self.player_y - 44, f"+{gain} damage", ACCENT)
         elif key == "speed":
-            self.player_speed *= 1.15
+            self.player_speed *= 1.12 + min(0.07, (self.level - 1) * 0.006)
             self.spawn_floating_text(self.player_x, self.player_y - 44, "Move up", BLUE)
         elif key == "projectiles":
             if self.projectile_count < 5:
@@ -510,11 +520,13 @@ class Game:
                     PURPLE,
                 )
         elif key == "magnet":
-            self.pickup_radius += 26
+            self.pickup_radius += int(26 * scaling)
             self.spawn_floating_text(self.player_x, self.player_y - 44, "Radar up", XP_COLOR)
         elif key == "shield":
-            self.player_max_hp += 24
-            self.player_hp = min(self.player_max_hp, self.player_hp + 14)
+            max_hp_gain = int(24 * scaling)
+            heal_gain = int(14 * scaling)
+            self.player_max_hp += max_hp_gain
+            self.player_hp = min(self.player_max_hp, self.player_hp + heal_gain)
             self.spawn_floating_text(self.player_x, self.player_y - 44, "Shield up", BLUE)
         elif key == "pierce":
             self.pierce += 1
@@ -522,8 +534,8 @@ class Game:
         elif key == "pulse":
             self.pulse_unlocked = True
             self.pulse_timer = min(self.pulse_timer, 1.0)
-            self.pulse_radius += 22
-            self.pulse_damage += 8
+            self.pulse_radius += int(22 * scaling)
+            self.pulse_damage += int(8 * scaling)
             self.spawn_floating_text(self.player_x, self.player_y - 44, "Pulse online", PURPLE)
         elif key == "recovery":
             self.regen_interval = (
@@ -557,17 +569,39 @@ class Game:
                     self.persist_progression_snapshot()
                     return 0
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.persist_progression_snapshot()
-                        return 0
                     if self.state == "achievements":
+                        if event.key == pygame.K_ESCAPE:
+                            self.state = self.menu_return_state
+                            continue
                         if event.key in (pygame.K_a, pygame.K_BACKSPACE):
                             self.state = self.menu_return_state
                         continue
+                    if self.state in {"help", "about"}:
+                        if event.key == pygame.K_ESCAPE:
+                            self.state = "title"
+                            continue
+                        if self.state == "help" and event.key == pygame.K_DOWN:
+                            self.help_scroll += 1
+                        elif self.state == "help" and event.key == pygame.K_UP:
+                            self.help_scroll = max(self.help_scroll - 1, 0)
+                        continue
+                    if event.key == pygame.K_ESCAPE:
+                        self.persist_progression_snapshot()
+                        return 0
                     if self.state in {"playing", "paused"} and event.key == pygame.K_p:
                         self.state = "paused" if self.state == "playing" else "playing"
                         self.play_sound("pause")
                         continue
+                    if self.state == "title":
+                        if event.key == pygame.K_UP:
+                            self.title_menu_index = (self.title_menu_index - 1) % 3
+                            continue
+                        if event.key == pygame.K_DOWN:
+                            self.title_menu_index = (self.title_menu_index + 1) % 3
+                            continue
+                        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                            self.activate_title_menu_item()
+                            continue
                     if self.state in {"title", "game_over"}:
                         if event.key == pygame.K_a:
                             self.menu_return_state = self.state
@@ -588,7 +622,17 @@ class Game:
                             self.selected_difficulty = "normal"
                         elif event.key in (pygame.K_3, pygame.K_KP3):
                             self.selected_difficulty = "crunch"
-                    if self.state in {"title", "game_over"} and event.key == pygame.K_SPACE:
+                    if self.state == "game_over":
+                        if event.key == pygame.K_LEFT:
+                            self.game_over_menu_index = (self.game_over_menu_index - 1) % 3
+                            continue
+                        if event.key == pygame.K_RIGHT:
+                            self.game_over_menu_index = (self.game_over_menu_index + 1) % 3
+                            continue
+                        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                            self.activate_game_over_menu_item()
+                            continue
+                    if self.state == "game_over" and event.key == pygame.K_SPACE:
                         self.start_run()
                     elif self.state == "level_up":
                         if event.key in (pygame.K_1, pygame.K_KP1):
@@ -600,6 +644,8 @@ class Game:
 
             if self.state == "playing":
                 self.update(dt)
+            elif self.state == "game_over":
+                self.update_game_over_effects(dt)
 
             self.draw()
             pygame.display.flip()
@@ -609,6 +655,26 @@ class Game:
             self.choose_upgrade(self.level_choices[index].key)
             self.level_choices = []
             self.state = "playing"
+
+    def activate_title_menu_item(self) -> None:
+        """Run the currently highlighted title-menu action."""
+        if self.title_menu_index == 0:
+            self.start_run()
+        elif self.title_menu_index == 1:
+            self.help_scroll = 0
+            self.state = "help"
+        elif self.title_menu_index == 2:
+            self.state = "about"
+
+    def activate_game_over_menu_item(self) -> None:
+        """Run the currently highlighted game-over action."""
+        if self.game_over_menu_index == 0:
+            self.start_run()
+        elif self.game_over_menu_index == 1:
+            self.menu_return_state = "game_over"
+            self.state = "achievements"
+        elif self.game_over_menu_index == 2:
+            self.reset()
 
     def update(self, dt: float) -> None:
         """Advance one gameplay frame while the run is active."""
@@ -659,11 +725,24 @@ class Game:
 
         if self.player_hp <= 0:
             self.state = "game_over"
+            self.death_burst_timer = 1.0
+            self.death_burst_x = self.player_x
+            self.death_burst_y = self.player_y
+            self.shake_timer = 0.0
+            self.shake_strength = 0.0
+            self.hit_flash = 0.0
+            self.kill_flash = 0.0
+            self.level_flash = 0.0
+            self.floating_texts = []
             self.play_sound("fail")
             if self.time_survived > self.best_time:
                 self.best_time = self.time_survived
                 save_best_time(self.best_time)
             self.finalize_run_progression()
+
+    def update_game_over_effects(self, dt: float) -> None:
+        """Advance short-lived effects that remain visible after gameplay stops."""
+        self.death_burst_timer = max(0.0, self.death_burst_timer - dt)
 
     def current_phase(self) -> Phase:
         elapsed = self.time_survived
@@ -1302,26 +1381,51 @@ class Game:
                     self.trigger_failsafe()
 
             if enemy["hp"] <= 0:
-                value = 3.0
-                if enemy["type"].name == "Meeting":
-                    value = 6.0
-                elif enemy["type"].name == "Scope Creep":
-                    value = 7.0
-                elif enemy["type"].name == "Alert":
-                    value = 4.0
-                elif enemy["type"].name == "Outage":
-                    value = 24.0
-                self.xp_shards.append({"x": enemy["x"], "y": enemy["y"], "value": value})
-                self.spawn_fix_text(enemy)
-                self.maybe_drop_powerup(enemy)
-                self.track_enemy_resolution(enemy)
-                if enemy["type"].name == "Scope Creep" and enemy.get("split_depth", 0) > 0:
-                    self.spawn_scope_split(enemy)
+                self.resolve_enemy(enemy)
                 self.kill_flash = 0.18
             else:
                 alive.append(enemy)
 
         self.enemies = alive
+
+    def resolve_enemy(
+        self,
+        enemy: dict,
+        insight_multiplier: float = 1.0,
+        allow_powerup_drop: bool = True,
+        allow_split: bool = True,
+    ) -> None:
+        """Apply all rewards and side effects for a truly defeated enemy."""
+        self.drop_enemy_insight(enemy, insight_multiplier)
+        self.spawn_fix_text(enemy)
+        if allow_powerup_drop:
+            self.maybe_drop_powerup(enemy)
+        self.track_enemy_resolution(enemy)
+        if allow_split and enemy["type"].name == "Scope Creep" and enemy.get("split_depth", 0) > 0:
+            self.spawn_scope_split(enemy)
+
+    def enemy_insight_value(self, enemy: dict) -> float:
+        """Return the base insight reward for resolving each enemy type."""
+        enemy_name = enemy["type"].name
+        if enemy_name == "Alert":
+            return 4.0
+        if enemy_name == "Meeting":
+            return 6.0
+        if enemy_name == "Scope Creep":
+            return 7.0
+        if enemy_name == "Outage":
+            return 24.0
+        return 3.0
+
+    def drop_enemy_insight(self, enemy: dict, multiplier: float = 1.0) -> None:
+        """Drop an insight shard at an enemy position."""
+        self.xp_shards.append(
+            {
+                "x": enemy["x"],
+                "y": enemy["y"],
+                "value": self.enemy_insight_value(enemy) * multiplier,
+            }
+        )
 
     def trigger_failsafe(self) -> None:
         if self.failsafe_level <= 0 or self.failsafe_cooldown > 0:
@@ -1574,6 +1678,10 @@ class Game:
         focus_bonus = 0.18 if self.focus_timer > 0 else 0.0
         return 1.0 + self.momentum * 0.45 + focus_bonus
 
+    def run_scaling_bonus(self) -> float:
+        """Scale some rewards gently so late-run tools keep pace with pressure."""
+        return 1.0 + min(0.45, max(0, self.level - 1) * 0.035)
+
     def effective_pickup_radius(self) -> float:
         focus_bonus = 18.0 if self.focus_timer > 0 else 0.0
         return self.pickup_radius * (1.0 + self.momentum * 0.35) + focus_bonus
@@ -1596,9 +1704,11 @@ class Game:
     def apply_powerup(self, kind: str) -> None:
         """Apply immediate or temporary effects from picked-up powerups."""
         self.stats["powerups"] += 1
+        scaling = self.run_scaling_bonus()
         if kind == "heal":
-            recovered = min(28.0, self.player_max_hp - self.player_hp)
-            self.player_hp = min(self.player_max_hp, self.player_hp + 28)
+            heal_amount = 28.0 * scaling
+            recovered = min(heal_amount, self.player_max_hp - self.player_hp)
+            self.player_hp = min(self.player_max_hp, self.player_hp + heal_amount)
             self.play_sound("pickup")
             self.spawn_floating_text(
                 self.player_x,
@@ -1607,21 +1717,35 @@ class Game:
                 GREEN,
             )
         elif kind == "bomb":
-            cleared = len(self.enemies)
+            bomb_damage = 92.0 * scaling
+            defeated = 0
+            survivors = []
             for enemy in self.enemies:
-                self.xp_shards.append({"x": enemy["x"], "y": enemy["y"], "value": 3.0})
-            self.enemies = []
+                enemy["hp"] -= bomb_damage
+                if enemy["hp"] <= 0:
+                    defeated += 1
+                    self.resolve_enemy(
+                        enemy,
+                        0.7 * scaling,
+                        allow_powerup_drop=False,
+                        allow_split=False,
+                    )
+                else:
+                    survivors.append(enemy)
+                    if enemy["type"].name == "Outage":
+                        self.spawn_floating_text(enemy["x"] - 28, enemy["y"] - 52, "Outage damaged", ACCENT)
+            self.enemies = survivors
             self.kill_flash = 0.6
             self.play_sound("crisis")
             self.trigger_screen_shake(0.2, 5.5)
             self.spawn_floating_text(
                 self.player_x,
                 self.player_y - 52,
-                f"Refactor x{cleared}",
+                f"Refactor x{defeated}",
                 ACCENT,
             )
         elif kind == "haste":
-            self.haste_timer = 7.0
+            self.haste_timer = min(12.0, 7.0 * scaling)
             self.play_sound("pickup")
             self.spawn_floating_text(self.player_x, self.player_y - 44, "CI Boost", BLUE)
 
@@ -1771,10 +1895,7 @@ class Game:
                 "You kept the run moving, stayed in flow, and converted mobility into steady growth.",
                 tags[:2] or ["High Momentum"],
             )
-        if (
-            self.stats["bugs_fixed"] + self.stats["alerts_silenced"] + self.stats["scope_trimmed"] >= 90
-            and (self.pulse_unlocked or self.overclock_level > 0)
-        ):
+        if self.run_resolved_count() >= 90 and (self.pulse_unlocked or self.overclock_level > 0):
             return (
                 "Incident Cleaner",
                 "The build focused on cleaning waves quickly instead of only escaping them.",
@@ -1784,6 +1905,27 @@ class Game:
             "Steady Maintainer",
             "You kept the system running without overcommitting to a single high-risk route.",
             tags[:2] or ["Balanced Run"],
+        )
+
+    def run_resolved_count(self) -> int:
+        """Return all enemy-pressure resolved during the current run."""
+        return (
+            self.stats["bugs_fixed"]
+            + self.stats["meetings_dodged"]
+            + self.stats["alerts_silenced"]
+            + self.stats["scope_trimmed"]
+            + self.stats["outages_resolved"]
+        )
+
+    def total_resolved_count(self) -> int:
+        """Return all cumulative enemy-pressure resolved across saved runs."""
+        totals = self.progression["totals"]
+        return (
+            totals["bugs_fixed"]
+            + totals["meetings_dodged"]
+            + totals["alerts_silenced"]
+            + totals["scope_trimmed"]
+            + totals["outages_resolved"]
         )
 
     def unlock_achievement(self, key: str) -> None:
@@ -1897,7 +2039,7 @@ class Game:
     def draw(self) -> None:
         shake_x = 0
         shake_y = 0
-        if self.shake_timer > 0 and self.shake_strength > 0:
+        if self.state != "game_over" and self.shake_timer > 0 and self.shake_strength > 0:
             shake_x = int((random() - 0.5) * 2 * self.shake_strength)
             shake_y = int((random() - 0.5) * 2 * self.shake_strength)
 
@@ -2008,6 +2150,8 @@ class Game:
                 )
 
         self.draw_player()
+        if self.state == "game_over" and self.death_burst_timer > 0:
+            self.draw_death_burst()
         if self.grace_timer > 0:
             pygame.draw.circle(
                 self.screen,
@@ -2025,11 +2169,16 @@ class Game:
                 2,
             )
 
-        self.draw_hud()
-        self.draw_floating_texts()
+        if self.state not in {"title", "achievements", "game_over"}:
+            self.draw_hud()
+            self.draw_floating_texts()
 
         if self.state == "title":
             self.draw_title_overlay()
+        elif self.state == "help":
+            self.draw_help_overlay()
+        elif self.state == "about":
+            self.draw_about_overlay()
         elif self.state == "achievements":
             self.draw_achievements_overlay()
         elif self.state == "level_up":
@@ -2175,17 +2324,18 @@ class Game:
         self.blit(self.small_font, label, GREEN, center[0] - 44, center[1] - radius - 30)
 
     def draw_hud(self) -> None:
-        panel = pygame.Rect(18, 18, 410, 184)
-        pygame.draw.rect(self.screen, PANEL, panel, border_radius=16)
+        """Draw a compact translucent HUD so gameplay remains visible underneath."""
+        panel = pygame.Rect(18, 18, 372, 144)
+        self.draw_translucent_rect(panel, PANEL, 150, 16)
+        pygame.draw.rect(self.screen, GRID, panel, 1, border_radius=16)
 
-        self.blit(self.large_font, TITLE, TEXT, 28, 24)
-        self.blit(self.small_font, f"Time  {self.time_survived:05.1f}s", TEXT, 28, 80)
-        self.blit(self.small_font, f"Level {self.level}", TEXT, 28, 106)
-        self.blit(self.small_font, f"Best  {self.best_time:05.1f}s", MUTED, 160, 106)
-        self.blit(self.small_font, self.current_phase().name, ACCENT, 260, 80)
-        self.blit(self.small_font, self.current_difficulty().label, MUTED, 260, 106)
+        self.blit(self.font, f"{self.current_phase().name}", TEXT, 28, 24)
+        self.blit(self.small_font, f"Time {self.time_survived:05.1f}s", TEXT, 28, 58)
+        self.blit(self.small_font, f"Lv {self.level}", TEXT, 170, 58)
+        self.blit(self.small_font, self.current_difficulty().label, ACCENT, 232, 58)
+        self.blit(self.small_font, f"Best {self.best_time:05.1f}s", MUTED, 28, 82)
         if self.current_phase().name == "Alert Storm":
-            self.blit(self.small_font, "Pager noise rising", RED, 380, 106)
+            self.blit(self.small_font, "Pager noise rising", RED, 170, 82)
         if self.crisis_banner_timer > 0:
             self.blit(self.font, self.crisis_name, RED, 500, 28)
         outage = next((enemy for enemy in self.enemies if enemy["type"].name == "Outage"), None)
@@ -2198,48 +2348,86 @@ class Game:
 
         self.draw_bar(
             28,
-            138,
-            300,
-            14,
+            106,
+            210,
+            10,
             hp_ratio,
             RED,
-            f"HP {int(self.player_hp)}/{int(self.player_max_hp)}",
+            f"HP {int(self.player_hp)}",
         )
-        self.draw_bar(28, 164, 300, 14, xp_ratio, BLUE, "Insight")
-        self.draw_bar(28, 190, 300, 14, self.momentum, GREEN, f"Momentum {self.momentum_tier}")
+        self.draw_bar(28, 122, 210, 10, xp_ratio, BLUE, f"Insight {int(self.xp)}/{int(self.xp_to_level)}")
+        self.draw_bar(28, 138, 210, 10, self.momentum, GREEN, f"{self.momentum_tier}")
 
-        self.blit(self.small_font, "Move: WASD / Arrows", MUTED, 960, 24)
-        self.blit(self.small_font, "Upgrades: 1 / 2 / 3", MUTED, 960, 48)
-        self.blit(self.small_font, "Pause: P", MUTED, 960, 72)
-        self.blit(self.small_font, "Exit: Esc", MUTED, 960, 96)
+        status_y = 24
+        self.blit(self.small_font, "P pause  |  Esc quit", MUTED, 930, status_y)
+        status_y += 24
         if self.regen_interval > 0:
-            self.blit(self.small_font, f"Regen {self.regen_interval:0.1f}s", MUTED, 960, 120)
+            self.blit(self.small_font, f"Regen {self.regen_interval:0.1f}s", MUTED, 930, status_y)
+            status_y += 24
         if self.pierce > 0:
-            self.blit(self.small_font, f"Pierce {self.pierce}", MUTED, 960, 144)
+            self.blit(self.small_font, f"Pierce {self.pierce}", MUTED, 930, status_y)
+            status_y += 24
         if self.focus_timer > 0:
-            self.blit(self.small_font, f"Focus {self.focus_timer:0.1f}s", GREEN, 960, 168)
+            self.blit(self.small_font, f"Focus {self.focus_timer:0.1f}s", GREEN, 930, status_y)
+            status_y += 24
         if self.haste_timer > 0:
-            self.blit(self.small_font, f"CI Boost {self.haste_timer:0.1f}s", BLUE, 960, 192)
+            self.blit(self.small_font, f"CI Boost {self.haste_timer:0.1f}s", BLUE, 930, status_y)
+            status_y += 24
         if self.momentum_tier != "Idle":
             self.blit(
                 self.small_font,
                 f"{self.momentum_tier}: Insight x{self.xp_multiplier():0.2f}",
                 GREEN,
-                960,
-                216,
+                930,
+                status_y,
             )
+            status_y += 24
         if self.drone_count > 0:
-            self.blit(self.small_font, f"Pairs {self.drone_count}", MUTED, 960, 240)
+            self.blit(self.small_font, f"Pairs {self.drone_count}", MUTED, 930, status_y)
+            status_y += 24
         if self.chain_count > 0:
-            self.blit(self.small_font, f"Code Review {self.chain_count}", MUTED, 960, 264)
+            self.blit(self.small_font, f"Code Review {self.chain_count}", MUTED, 930, status_y)
+            status_y += 24
         if self.failsafe_level > 0:
             cooldown = "ready" if self.failsafe_cooldown <= 0 else f"{self.failsafe_cooldown:0.1f}s"
-            self.blit(self.small_font, f"Guard {cooldown}", MUTED, 960, 288)
+            self.blit(self.small_font, f"Guard {cooldown}", MUTED, 930, status_y)
+            status_y += 24
         if self.overclock_level > 0:
-            self.blit(self.small_font, f"Overclock {self.overclock_level}", MUTED, 960, 312)
+            self.blit(self.small_font, f"Overclock {self.overclock_level}", MUTED, 930, status_y)
         if self.objective is not None:
             objective_y = 82 if outage is not None else 58
             self.blit(self.small_font, "Optional: hold deploy window", GREEN, 500, objective_y)
+
+    def draw_death_burst(self) -> None:
+        """Render the brief failure burst behind the game-over report."""
+        x = int(self.death_burst_x)
+        y = int(self.death_burst_y)
+        surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        for radius, alpha, color in (
+            (34, 170, ACCENT),
+            (58, 110, RED),
+            (86, 64, OUTAGE_COLOR),
+        ):
+            pygame.draw.circle(surface, (*color, alpha), (x, y), radius, 4)
+        for index in range(10):
+            angle = index * (2 * pi / 10)
+            start = (int(x + cos(angle) * 18), int(y + sin(angle) * 18))
+            end = (int(x + cos(angle) * 76), int(y + sin(angle) * 76))
+            pygame.draw.line(surface, (*ACCENT, 125), start, end, 3)
+        pygame.draw.circle(surface, (*TEXT, 200), (x, y), 8)
+        self.screen.blit(surface, (0, 0))
+
+    def draw_translucent_rect(
+        self,
+        rect: pygame.Rect,
+        color: tuple[int, int, int],
+        alpha: int,
+        border_radius: int,
+    ) -> None:
+        """Draw a rounded translucent rectangle without changing global alpha."""
+        surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(surface, (*color, alpha), surface.get_rect(), border_radius=border_radius)
+        self.screen.blit(surface, rect.topleft)
 
     def draw_bar(
         self,
@@ -2256,164 +2444,273 @@ class Game:
         self.blit(self.small_font, label, TEXT, x + width + 12, y - 2)
 
     def draw_title_overlay(self) -> None:
-        self.draw_overlay_panel(180, 130, 920, 460)
-        self.blit(self.large_font, "Deadline Survivors", TEXT, 248, 180)
-        self.blit(self.font, "Ship patches before bugs and deadlines take over.", MUTED, 248, 252)
+        self.draw_overlay_panel(170, 92, 940, 548)
         difficulty = self.current_difficulty()
-        skin = self.current_skin()
-        badge = self.current_badge()
-        patch_theme = self.current_patch_theme()
-        self.blit(self.font, "Run Setup", ACCENT, 248, 294)
-        self.blit(
-            self.small_font,
-            "Difficulty: 1 Casual  2 Normal  3 Crunch",
-            TEXT,
-            248,
-            328,
-        )
-        self.blit(
-            self.small_font,
-            f"Current: {difficulty.label} - {difficulty.description}",
-            MUTED,
-            248,
-            352,
-        )
-        self.blit(
-            self.small_font,
-            f"Skin: {skin['label']} ({len(self.unlocked_skins())}/{len(PLAYER_SKINS)})  -  S",
-            GREEN,
-            248,
-            388,
-        )
-        self.blit(
-            self.small_font,
-            f"Badge: {badge['label']} ({len(self.unlocked_badges())}/{len(PLAYER_BADGES)})  -  B",
-            badge["color"],
-            248,
-            412,
-        )
-        self.blit(
-            self.small_font,
-            f"Patch theme: {patch_theme['label']} ({len(self.unlocked_patch_themes())}/{len(PATCH_THEMES)})  -  T",
-            patch_theme["color"],
-            248,
-            436,
-        )
-        self.blit(self.small_font, "Achievements  -  A", ACCENT, 248, 460)
-        self.blit(self.font, "Press Space to start", TEXT, 248, 520)
-        self.blit(self.small_font, "Equipped loadout", MUTED, 248, 548)
-        self.draw_equipped_chip(248, 576, skin["label"], skin["outline"])
-        self.draw_equipped_chip(440, 576, badge["label"], badge["color"])
-        self.draw_equipped_chip(660, 576, patch_theme["label"], patch_theme["color"])
+        self.blit(self.large_font, "Deadline Survivors", TEXT, 238, 126)
+        self.blit(self.small_font, "Ship patches. Dodge pressure. Survive the deadline.", MUTED, 242, 190)
 
-        right_x = 650
-        self.blit(self.font, "How Runs Work", ACCENT, right_x, 294)
-        summary_lines = [
-            "Move to keep momentum high.",
-            "Deploy windows trade risk for growth.",
-            "Powerups handle short-term recovery.",
-            "Outages create mini-boss pressure.",
-            "Achievements unlock cosmetics over time.",
+        self.draw_title_scene(238, 228, 460, 284)
+
+        menu_rect = pygame.Rect(738, 238, 280, 236)
+        pygame.draw.rect(self.screen, BG, menu_rect, border_radius=18)
+        pygame.draw.rect(self.screen, GRID, menu_rect, 1, border_radius=18)
+        self.blit(self.font, "Menu", ACCENT, 768, 266)
+        menu_items = ["Start Game", "How To Play", "Game Story"]
+        for index, label in enumerate(menu_items):
+            self.draw_menu_option(768, 318 + index * 48, label, index == self.title_menu_index)
+
+        self.blit(self.small_font, "Up / Down select", MUTED, 768, 482)
+        self.blit(self.small_font, "Enter / Space confirm", MUTED, 768, 506)
+
+        self.draw_title_status_bar(238, 534, difficulty)
+
+    def draw_title_scene(self, x: int, y: int, width: int, height: int) -> None:
+        """Draw a small readable preview of the game's premise on the title screen."""
+        scene = pygame.Rect(x, y, width, height)
+        pygame.draw.rect(self.screen, BG, scene, border_radius=18)
+        pygame.draw.rect(self.screen, GRID, scene, 1, border_radius=18)
+        self.blit(self.small_font, "Developer vs production pressure", MUTED, x + 28, y + 22)
+
+        floor_y = y + height - 56
+        pygame.draw.line(self.screen, GRID, (x + 38, floor_y), (x + width - 38, floor_y), 2)
+        developer_x = x + width // 2
+        developer_y = y + int(height * 0.58)
+        pygame.draw.circle(self.screen, PLAYER_COLOR, (developer_x, developer_y - 50), 22)
+        pygame.draw.rect(self.screen, BLUE, (developer_x - 24, developer_y - 26, 48, 56), border_radius=12)
+        pygame.draw.rect(self.screen, PANEL, (developer_x - 38, developer_y - 2, 76, 40), border_radius=8)
+        pygame.draw.rect(self.screen, GREEN, (developer_x - 30, developer_y + 5, 60, 24), 2, border_radius=5)
+        self.blit(self.small_font, "</>", GREEN, developer_x - 18, developer_y + 3)
+
+        enemies = [
+            (x + int(width * 0.19), y + int(height * 0.54), BUG_COLOR, "Bug"),
+            (x + int(width * 0.79), y + int(height * 0.45), ALERT_COLOR, "Alert"),
+            (x + int(width * 0.84), y + int(height * 0.78), SCOPE_COLOR, "Scope"),
+            (x + int(width * 0.27), y + int(height * 0.78), MEETING_COLOR, "Meeting"),
         ]
-        for index, line in enumerate(summary_lines):
-            self.blit(self.small_font, f"• {line}", TEXT, right_x, 332 + index * 28)
+        for enemy_x, enemy_y, color, label in enemies:
+            pygame.draw.circle(self.screen, color, (enemy_x, enemy_y), 20)
+            pygame.draw.circle(self.screen, TEXT, (enemy_x, enemy_y), 5, 2)
+            self.blit(self.small_font, label, MUTED, enemy_x - 34, enemy_y + 30)
+
+        for offset in (0, 38, 76):
+            pygame.draw.circle(self.screen, self.current_patch_theme()["color"], (developer_x + 58 + offset, developer_y - 8), 6)
+
+    def draw_title_status_bar(self, x: int, y: int, difficulty: Difficulty) -> None:
+        rect = pygame.Rect(x, y, 780, 76)
+        pygame.draw.rect(self.screen, BG, rect, border_radius=14)
+        pygame.draw.rect(self.screen, GRID, rect, 1, border_radius=14)
+        self.blit(self.small_font, f"Difficulty: {difficulty.label}", ACCENT, x + 22, y + 16)
+        self.blit(self.small_font, f"Best: {self.best_time:05.1f}s", MUTED, x + 220, y + 16)
+        self.blit(self.small_font, "1 Easy   2 Medium   3 Hard", MUTED, x + 386, y + 16)
+        self.blit(self.small_font, "A achievements   S/B/T cosmetics", MUTED, x + 22, y + 46)
+
+    def draw_menu_option(self, x: int, y: int, label: str, selected: bool) -> None:
+        rect = pygame.Rect(x, y, 230, 32)
+        if selected:
+            pygame.draw.rect(self.screen, PANEL, rect, border_radius=8)
+            pygame.draw.rect(self.screen, ACCENT, rect, 2, border_radius=8)
+        marker = ">" if selected else " "
+        self.blit(self.small_font, marker, ACCENT if selected else MUTED, x + 12, y + 7)
+        self.blit(self.small_font, label, TEXT if selected else MUTED, x + 42, y + 7)
+
+    def draw_help_overlay(self) -> None:
+        """Draw the scrollable title-screen help page."""
+        self.draw_overlay_panel(150, 70, 980, 590)
+        self.blit(self.large_font, "How To Play", TEXT, 210, 108)
+        self.blit(self.small_font, "Up / Down scroll   |   Esc back", MUTED, 780, 126)
+
+        content = [
+            ("Controls", [
+                "WASD or Arrow Keys: move the developer.",
+                "P: pause or resume the run.",
+                "Esc: quit during a run, or close this page.",
+                "1 / 2 / 3: choose upgrades during level-up.",
+                "On the title screen, 1 / 2 / 3 selects Easy, Medium, or Hard.",
+            ]),
+            ("Core Loop", [
+                "Move constantly to build Momentum.",
+                "Automatic patches target nearby issues.",
+                "Collect Insight shards to level up.",
+                "Deploy windows are optional risk-reward objectives.",
+                "Powerups are short-term rescue tools.",
+            ]),
+            ("Upgrades", [
+                "Patch Notes: more patch damage.",
+                "Multicast: fire extra patches.",
+                "Rollback Thread: patches pierce more issues.",
+                "Code Review: patches chain into nearby issues.",
+                "Pair Programmer: adds helper patches.",
+                "Rollback Guard: low-health emergency pulse.",
+                "Overclocked Build: Overdrive hits create bursts.",
+            ]),
+            ("Powerups", [
+                "Coffee Break: recover part of your HP.",
+                "Refactor Bomb: heavy screen damage; bosses can survive.",
+                "CI Boost: temporarily ships patches faster.",
+            ]),
+        ]
+        lines: list[tuple[str, str]] = []
+        for heading, entries in content:
+            lines.append(("heading", heading))
+            for entry in entries:
+                lines.append(("body", entry))
+            lines.append(("space", ""))
+
+        start = min(self.help_scroll, max(0, len(lines) - 16))
+        self.help_scroll = start
+        visible = lines[start : start + 16]
+        y = 178
+        for kind, text in visible:
+            if kind == "heading":
+                self.blit(self.font, text, ACCENT, 210, y)
+                y += 34
+            elif kind == "body":
+                self.blit(self.small_font, text, TEXT, 238, y)
+                y += 26
+            else:
+                y += 10
+
+        ratio = start / max(1, len(lines) - 16)
+        bar = pygame.Rect(1080, 176, 8, 410)
+        pygame.draw.rect(self.screen, GRID, bar, border_radius=999)
+        pygame.draw.rect(
+            self.screen,
+            ACCENT,
+            (bar.x, int(bar.y + ratio * 300), bar.width, 110),
+            border_radius=999,
+        )
+
+    def draw_about_overlay(self) -> None:
+        """Draw the title-screen story page."""
+        self.draw_overlay_panel(170, 92, 940, 548)
+        self.blit(self.large_font, "Game Story", TEXT, 240, 138)
+        self.blit(self.small_font, "Esc back", MUTED, 924, 150)
+        story_lines = [
+            "You are a developer trying to keep production alive before the deadline.",
+            "Bugs, alerts, meetings, scope creep, and outages push in from every side.",
+            "Your patches fire automatically, but survival depends on movement, upgrades,",
+            "deploy timing, and knowing when to grab a rescue powerup.",
+        ]
+        for index, line in enumerate(story_lines):
+            self.blit(self.small_font, line, TEXT, 240, 222 + index * 30)
+
+        self.draw_title_scene(440, 360, 390, 220)
 
     def draw_achievements_overlay(self) -> None:
-        self.draw_overlay_panel(120, 70, 1040, 580)
-        self.blit(self.large_font, "Achievements", TEXT, 170, 118)
+        self.draw_overlay_panel(150, 60, 980, 610)
+        self.blit(self.large_font, "Achievements", TEXT, 200, 94)
 
         achievements = self.progression["achievements"]
         totals = self.progression["totals"]
         unlocked_count = sum(1 for value in achievements.values() if value.get("unlocked"))
         completion_ratio = unlocked_count / max(1, len(ACHIEVEMENT_DEFS))
-        self.blit(
-            self.font,
-            f"Unlocked {unlocked_count}/{len(ACHIEVEMENT_DEFS)}",
-            ACCENT,
-            170,
-            178,
-        )
-        self.blit(
-            self.large_font,
-            f"{int(completion_ratio * 100)}%",
-            GREEN if completion_ratio >= 1.0 else TEXT,
-            980,
-            108,
-        )
-        self.blit(self.small_font, "Progress", MUTED, 1006, 168)
-        self.blit(
-            self.small_font,
-            f"Runs {totals['runs_played']}  |  Best {float(totals['best_time']):05.1f}s  |  Bugs fixed {totals['bugs_fixed']}",
-            MUTED,
-            170,
-            214,
-        )
-        self.draw_bar(170, 236, 240, 10, completion_ratio, GREEN, "Completion")
+
+        self.draw_achievement_summary_card(200, 166, "Unlocked", f"{unlocked_count}/{len(ACHIEVEMENT_DEFS)}", ACCENT)
+        self.draw_achievement_summary_card(418, 166, "Best Run", f"{float(totals['best_time']):05.1f}s", BLUE)
+        self.draw_achievement_summary_card(636, 166, "Runs", str(totals["runs_played"]), PURPLE)
+        self.draw_achievement_summary_card(854, 166, "Resolved", str(self.total_resolved_count()), GREEN)
+
+        progress_rect = pygame.Rect(200, 256, 880, 48)
+        pygame.draw.rect(self.screen, BG, progress_rect, border_radius=16)
+        pygame.draw.rect(self.screen, GRID, progress_rect, 1, border_radius=16)
+        self.blit(self.small_font, "Overall progress", MUTED, 224, 268)
+        self.blit(self.font, f"{int(completion_ratio * 100)}%", TEXT, 224, 288)
+        self.draw_achievement_progress_bar(314, 284, 230, 10, completion_ratio, GREEN)
+
         next_hint = self.next_achievement_hint()
         if next_hint is not None:
             hint_title, hint_description = next_hint
-            self.blit(self.small_font, f"Next target: {hint_title}", GREEN, 470, 236)
-            self.blit(self.small_font, hint_description, MUTED, 470, 260)
+            self.blit(self.small_font, "Next target", MUTED, 590, 268)
+            self.blit(self.font, hint_title, GREEN, 590, 286)
+            self.blit(self.small_font, hint_description, MUTED, 784, 290)
         else:
-            self.blit(self.small_font, "All current achievements unlocked.", GREEN, 470, 236)
+            self.blit(self.font, "All current achievements unlocked.", GREEN, 590, 282)
 
-        group_positions = [(160, 280), (610, 280), (160, 470), (610, 470)]
-        for index, (group_name, group_color, group_description, rows) in enumerate(ACHIEVEMENT_GROUPS):
-            group_x, group_y = group_positions[index]
-            group_rect = pygame.Rect(group_x, group_y, 410, 150)
-            pygame.draw.rect(self.screen, PANEL, group_rect, border_radius=16)
-            pygame.draw.rect(self.screen, group_color, (group_x, group_y, 410, 6), border_radius=16)
-            pygame.draw.rect(self.screen, GRID, group_rect, 2, border_radius=16)
-            pygame.draw.circle(self.screen, group_color, (group_x + 18, group_y + 22), 7)
-            self.blit(self.font, group_name, group_color, group_x + 34, group_y + 12)
+        group_positions = [(190, 326), (650, 326), (190, 492), (650, 492)]
+        for group_x, group_y, group in zip(
+            [position[0] for position in group_positions],
+            [position[1] for position in group_positions],
+            ACHIEVEMENT_GROUPS,
+        ):
+            self.draw_achievement_group_card(group_x, group_y, group)
 
-            unlocked_in_group = sum(1 for key, _ in rows if achievements[key].get("unlocked"))
-            self.blit(
-                self.small_font,
-                f"{unlocked_in_group}/{len(rows)} unlocked",
-                MUTED,
-                group_x + 270,
-                group_y + 16,
+        self.blit(self.small_font, "A / Backspace / Esc return", ACCENT, 200, 644)
+
+    def draw_achievement_summary_card(
+        self,
+        x: int,
+        y: int,
+        label: str,
+        value: str,
+        color: tuple[int, int, int],
+    ) -> None:
+        """Draw a compact top-level achievement metric."""
+        rect = pygame.Rect(x, y, 190, 66)
+        pygame.draw.rect(self.screen, BG, rect, border_radius=14)
+        pygame.draw.rect(self.screen, GRID, rect, 1, border_radius=14)
+        pygame.draw.circle(self.screen, color, (x + 22, y + 22), 7)
+        self.blit(self.small_font, label, MUTED, x + 40, y + 12)
+        self.blit(self.font, value, TEXT, x + 20, y + 34)
+
+    def draw_achievement_group_card(
+        self,
+        x: int,
+        y: int,
+        group: tuple[str, tuple[int, int, int], str, list[tuple[str, str]]],
+    ) -> None:
+        """Draw one achievement category without long text collisions."""
+        group_name, group_color, group_description, rows = group
+        group_summary = {
+            "Milestones": "First unlocks and core systems.",
+            "Challenges": "Harder goals for confident runs.",
+            "Build Goals": "Targets for different upgrade paths.",
+            "Mastery": "Long-term account progress.",
+        }.get(group_name, group_description)
+        achievements = self.progression["achievements"]
+        unlocked_in_group = sum(1 for key, _ in rows if achievements[key].get("unlocked"))
+        rect = pygame.Rect(x, y, 440, 142)
+        pygame.draw.rect(self.screen, BG, rect, border_radius=16)
+        pygame.draw.rect(self.screen, group_color, (x, y, rect.width, 5), border_radius=16)
+        pygame.draw.rect(self.screen, GRID, rect, 1, border_radius=16)
+        pygame.draw.circle(self.screen, group_color, (x + 22, y + 28), 8)
+        self.blit(self.font, group_name, group_color, x + 40, y + 14)
+        self.blit(self.small_font, f"{unlocked_in_group}/{len(rows)}", MUTED, x + 374, y + 20)
+        self.blit(self.small_font, group_summary, MUTED, x + 20, y + 48)
+
+        for row_index, (key, _) in enumerate(rows):
+            row_y = y + 74 + row_index * 22
+            unlocked = achievements[key].get("unlocked", False)
+            recent = self.achievement_is_recent(key)
+            progress_ratio = self.achievement_progress_ratio(key)
+            marker_color = ACCENT if recent else (GREEN if unlocked else GRID)
+            progress_color = marker_color if unlocked or recent else MUTED
+            text_color = TEXT if unlocked or recent else MUTED
+            pygame.draw.circle(self.screen, marker_color, (x + 26, row_y + 7), 5)
+            self.blit(self.small_font, ACHIEVEMENT_DEFS[key], text_color, x + 42, row_y - 3)
+            if recent:
+                self.blit(self.small_font, "NEW", ACCENT, x + 232, row_y - 3)
+            self.blit(self.small_font, self.achievement_progress_text(key), progress_color, x + 286, row_y - 3)
+            self.draw_achievement_progress_bar(
+                x + 42,
+                row_y + 15,
+                190,
+                5,
+                progress_ratio,
+                GREEN if unlocked else ACCENT,
             )
-            self.blit(self.small_font, group_description, MUTED, group_x + 14, group_y + 40)
 
-            for row_index, (key, description) in enumerate(rows):
-                unlocked = achievements[key].get("unlocked", False)
-                recent = self.achievement_is_recent(key)
-                row_y = group_y + 62 + row_index * 24
-                marker_color = ACCENT if recent else (GREEN if unlocked else GRID)
-                pygame.draw.circle(self.screen, marker_color, (group_x + 16, row_y + 8), 6)
-                self.blit(
-                    self.small_font,
-                    ACHIEVEMENT_DEFS[key],
-                    TEXT if unlocked or recent else MUTED,
-                    group_x + 30,
-                    row_y - 2,
-                )
-                progress_ratio = self.achievement_progress_ratio(key)
-                progress_text = self.achievement_progress_text(key)
-                self.blit(
-                    self.small_font,
-                    progress_text,
-                    marker_color if unlocked or recent else MUTED,
-                    group_x + 286,
-                    row_y - 2,
-                )
-                progress_bar_rect = pygame.Rect(group_x + 30, row_y + 16, 220, 6)
-                pygame.draw.rect(self.screen, GRID, progress_bar_rect, border_radius=999)
-                pygame.draw.rect(
-                    self.screen,
-                    GREEN if unlocked else ACCENT,
-                    (progress_bar_rect.x, progress_bar_rect.y, int(progress_bar_rect.width * progress_ratio), progress_bar_rect.height),
-                    border_radius=999,
-                )
-                wrapped = wrap_text(self.small_font, description, 150)
-                if wrapped:
-                    self.blit(self.small_font, wrapped[0], MUTED, group_x + 260, row_y + 10)
-                if recent:
-                    self.blit(self.small_font, "NEW", ACCENT, group_x + 236, row_y - 2)
-
-        self.blit(self.small_font, "Press A or Backspace to return.", ACCENT, 170, 610)
+    def draw_achievement_progress_bar(
+        self,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        ratio: float,
+        color: tuple[int, int, int],
+    ) -> None:
+        ratio = max(0.0, min(1.0, ratio))
+        pygame.draw.rect(self.screen, GRID, (x, y, width, height), border_radius=999)
+        pygame.draw.rect(self.screen, color, (x, y, int(width * ratio), height), border_radius=999)
 
     def draw_paused_overlay(self) -> None:
         self.draw_overlay_panel(260, 180, 760, 280)
@@ -2444,76 +2741,60 @@ class Game:
                 self.blit(self.small_font, line, MUTED, rect.x + 20, rect.y + 132 + line_index * 24)
 
     def draw_game_over_overlay(self) -> None:
-        self.draw_overlay_panel(180, 120, 920, 470)
+        self.draw_overlay_panel(190, 88, 900, 540)
         title, description, tags = self.current_run_evaluation()
-        badge = self.current_badge()
-        patch_theme = self.current_patch_theme()
-        summary_rect = pygame.Rect(278, 214, 724, 160)
-        stats_rect = pygame.Rect(278, 448, 724, 124)
-        side_rect = pygame.Rect(278, 388, 724, 48)
-        for rect in (summary_rect, side_rect, stats_rect):
+        summary_rect = pygame.Rect(250, 204, 780, 154)
+        stats_rect = pygame.Rect(250, 376, 780, 112)
+        menu_rect = pygame.Rect(250, 506, 780, 94)
+        for rect in (summary_rect, stats_rect, menu_rect):
             pygame.draw.rect(self.screen, BG, rect, border_radius=18)
             pygame.draw.rect(self.screen, GRID, rect, 1, border_radius=18)
 
-        self.blit(self.large_font, "Deploy Failed", TEXT, 300, 230)
+        self.blit(self.font, "Deploy Failed", RED, 250, 128)
         self.blit(
-            self.font,
-            f"Kept production alive for {self.time_survived:05.1f}s",
+            self.large_font,
+            f"{self.time_survived:05.1f}s",
             TEXT,
-            300,
-            292,
+            250,
+            152,
         )
-        self.blit(self.font, f"Best run {self.best_time:05.1f} seconds", MUTED, 300, 326)
-        self.blit(self.font, f"Run evaluation: {title}", ACCENT, 300, 362)
-        wrapped = wrap_text(self.small_font, description, 720)
+        self.blit(self.small_font, f"Best run {self.best_time:05.1f}s", MUTED, 520, 174)
+        self.blit(self.small_font, f"Difficulty {self.current_difficulty().label}", ACCENT, 770, 174)
+        self.blit(self.small_font, "Run evaluation", MUTED, 276, 230)
+        self.blit(self.font, title, ACCENT, 276, 256)
+        wrapped = wrap_text(self.small_font, description, 560)
         for index, line in enumerate(wrapped[:2]):
-            self.blit(self.small_font, line, MUTED, 300, 396 + index * 22)
+            self.blit(self.small_font, line, MUTED, 276, 298 + index * 22)
+        chip_x = 760
         if tags:
-            self.blit(self.small_font, "Tags", MUTED, 300, 410 + 20)
-            self.blit(self.small_font, "  |  ".join(tags[:3]), GREEN, 352, 430)
+            for index, tag in enumerate(tags[:2]):
+                self.draw_equipped_chip(chip_x, 248 + index * 36, tag, GREEN)
         if self.new_achievements:
             unlocked_names = [ACHIEVEMENT_DEFS.get(key, key) for key in self.new_achievements[:2]]
-            self.blit(
-                self.small_font,
-                "Unlocked: " + "  |  ".join(unlocked_names),
-                ACCENT,
-                300,
-                402,
-            )
-        self.blit(self.small_font, f"Badge: {badge['label']} (press B)", badge["color"], 640, 402)
-        self.blit(
-            self.small_font,
-            f"Patch theme: {patch_theme['label']} (press T)",
-            patch_theme["color"],
-            640,
-            424,
-        )
-        self.blit(self.small_font, "Current loadout", MUTED, 300, 432)
-        self.draw_equipped_chip(300, 454, self.current_skin()["label"], self.current_skin()["outline"])
-        self.draw_equipped_chip(492, 454, badge["label"], badge["color"])
-        self.draw_equipped_chip(712, 454, patch_theme["label"], patch_theme["color"])
-        stats = [
-            f"Difficulty: {self.current_difficulty().label}",
-            f"Insight: {int(self.stats['insight'])}",
-            f"Bugs fixed: {self.stats['bugs_fixed']}",
-            f"Meetings dodged: {self.stats['meetings_dodged']}",
-            f"Alerts silenced: {self.stats['alerts_silenced']}",
-            f"Scope trimmed: {self.stats['scope_trimmed']}",
-            f"Outages resolved: {self.stats['outages_resolved']}",
-            f"Deploys: {self.stats['deploys']}",
-            f"Powerups used: {self.stats['powerups']}",
+            self.blit(self.small_font, "Unlocked: " + " | ".join(unlocked_names), ACCENT, 276, 334)
+
+        stat_cards = [
+            ("Resolved", self.run_resolved_count()),
+            ("Insight", int(self.stats["insight"])),
+            ("Deploys", self.stats["deploys"]),
+            ("Powerups", self.stats["powerups"]),
         ]
-        for index, line in enumerate(stats):
-            column_x = 300 if index < 5 else 640
-            row_y = 470 + (index % 5) * 20
-            self.blit(self.small_font, line, TEXT, column_x, row_y)
-        self.blit(self.small_font, "Press A to view achievements.", GREEN, 300, 586)
-        self.blit(self.small_font, "1 Casual  2 Normal  3 Crunch", ACCENT, 560, 586)
-        self.blit(self.font, "Press Space to restart.", TEXT, 300, 612)
+        for index, (label, value) in enumerate(stat_cards):
+            card = pygame.Rect(276 + index * 184, 400, 158, 64)
+            pygame.draw.rect(self.screen, PANEL, card, border_radius=14)
+            pygame.draw.rect(self.screen, GRID, card, 1, border_radius=14)
+            self.blit(self.font, str(value), TEXT, card.x + 18, card.y + 10)
+            self.blit(self.small_font, label, MUTED, card.x + 18, card.y + 40)
+
+        self.blit(self.small_font, "Choose next action", MUTED, 276, 524)
+        menu_items = ["Restart", "Achievements", "Main Menu"]
+        for index, label in enumerate(menu_items):
+            self.draw_menu_option(276 + index * 230, 552, label, index == self.game_over_menu_index)
+        self.blit(self.small_font, "Left / Right select   Enter confirm   Space restart   1/2/3 difficulty", MUTED, 276, 608)
 
     def draw_overlay_panel(self, x: int, y: int, width: int, height: int) -> None:
         overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 160))
+        overlay.fill((0, 0, 0, 192 if self.state == "game_over" else 160))
         self.screen.blit(overlay, (0, 0))
         pygame.draw.rect(self.screen, PANEL, (x, y, width, height), border_radius=22)
         pygame.draw.rect(self.screen, ACCENT, (x, y, width, height), 2, border_radius=22)

@@ -72,9 +72,14 @@ This repository includes a GitHub Actions workflow that builds artifacts on:
 ## Controls
 
 - `WASD` or arrow keys: move
-- `Space`: start / continue
+- `Up` / `Down` on title: choose a menu item
+- `Enter` or `Space` on title: confirm the selected menu item
+- `Left` / `Right` on game over: choose restart, achievements, or main menu
+- `Enter` on game over: confirm the selected action
+- `Space` on game over: quick restart
 - `1`, `2`, `3`: choose upgrades during level-up
 - `1`, `2`, `3` on title / game over: choose difficulty
+- `How To Play`: scroll with `Up` / `Down`, close with `Esc`
 - `A`: open achievements on title / game over
 - `B`: cycle unlocked badges on title / game over
 - `S`: cycle unlocked player skins on title / game over
@@ -94,6 +99,26 @@ This repository includes a GitHub Actions workflow that builds artifacts on:
 - level up and choose upgrades
 - survive as long as possible
 - adapt to changing pressure phases during the run
+
+## Title Menu
+
+The title screen is a compact menu instead of a full instruction page:
+
+- `Start Game`: begins a run with the selected difficulty
+- `How To Play`: opens a scrollable help page with controls, upgrades, and powerups
+- `Game Story`: explains the developer, bugs, alerts, scope creep, and deadline theme
+
+The title screen also includes a small gameplay preview scene so new players can understand the premise before starting.
+
+## Game Over Menu
+
+The game-over screen is now a focused run report instead of a dense stat dump:
+
+- top area: survival time, best run, difficulty, and run evaluation
+- middle cards: resolved pressure, insight, deploys, and powerups used
+- bottom menu: restart, achievements, or return to the main menu
+
+This keeps failure readable, gives the player a clear next action, and leaves detailed progression to the achievements page.
 
 ## Deploy Windows And Momentum
 
@@ -141,27 +166,35 @@ The curve keeps early progress readable, then slows down frequent upgrade interr
 - `Rollback Guard`: low HP triggers an emergency stabilizing pulse.
 - `Overclocked Build`: Overdrive hits create small burst damage.
 
-Short-term rescue effects are still handled by powerups, but the upgrade pool now also includes more build-defining mechanics so runs diverge more clearly.
+Short-term rescue effects are still handled by powerups, but the upgrade pool now also includes more build-defining mechanics so runs diverge more clearly. Some upgrade gains scale slightly with level, so later choices still feel meaningful as enemy pressure rises.
 
 ## Powerups
 
 Enemies can drop temporary powerups:
 
 - `Coffee Break`: restores part of your HP, not a full heal
-- `Refactor Bomb`: clears enemies on screen and drops small insight shards
+- `Refactor Bomb`: deals heavy screen-wide damage, clears most enemies, and only rewards enemies it actually defeats
 - `CI Boost`: temporarily reduces patch cooldown
 
-This keeps level-up choices focused on long-term build direction while powerups create quick, exciting recovery moments.
+Powerups also scale slightly with level, so rescue tools stay useful during longer runs. This keeps level-up choices focused on long-term build direction while powerups create quick recovery moments.
 
 ## Difficulty Modes
 
 The title screen and retry screen now support three difficulty presets:
 
-- `Casual`: softer pressure and more forgiving enemy stats
-- `Normal`: the default intended balance
-- `Crunch`: faster waves and harsher production pain
+- `Easy`: softer pressure and more forgiving enemy stats
+- `Medium`: the default intended balance
+- `Hard`: faster waves and harsher production pain
 
 Difficulty affects enemy durability, enemy damage, spawn pace, and insight gain.
+
+## Combat HUD
+
+The in-run HUD is intentionally compact and translucent:
+
+- the top-left panel shows phase, time, level, difficulty, best time, HP, insight, and momentum
+- the top-right area only shows active status effects and short controls
+- the HUD no longer blocks the player completely when they move under it
 
 ## Player Character
 
@@ -203,7 +236,7 @@ The game now tracks a first batch of local achievements without any online accou
 - `First Patch Rush`: reach `Overdrive` for the first time
 - `First Deploy`: complete a deploy window for the first time
 - `First Outage`: defeat a `Production Outage`
-- `Crunch Survivor`: survive 10 minutes on `Crunch`
+- `Hard Survivor`: survive 10 minutes on `Hard`
 - `Deploy Addict`: complete 5 deploys in one run
 - `Pair Flow`: reach 2 `Pair Programmer` helpers
 - `Review Cascade`: chain through 3 targets
@@ -222,6 +255,7 @@ The game now includes lightweight built-in feedback without external assets:
 - light screen shake on hits, bombs, pulse bursts, and crisis spikes
 - a pause overlay so longer runs are easier to manage
 - a dedicated `Outage` HP bar and encounter banner for mini-boss moments
+- a short death burst before the game-over report settles
 
 ## Pressure Phases
 
