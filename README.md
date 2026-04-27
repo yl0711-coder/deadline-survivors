@@ -53,6 +53,7 @@ py run_game.py
 - `Enter` / `Space`: confirm menu actions
 - `1`, `2`, `3`: choose difficulty or level-up upgrades
 - `A`: achievements
+- `H`: local run history
 - `B`: cycle badges
 - `S`: cycle player skins
 - `T`: cycle patch themes
@@ -69,6 +70,7 @@ py run_game.py
 - Capture Deploy Windows for bonus insight, healing, and Focus Mode.
 - Build Momentum by moving; high Momentum improves patching and pickup flow.
 - Prioritize Production Outages before they flood the map with hazards and support enemies.
+- Review your last 10 completed runs locally with `H`.
 
 ## Project Notes
 

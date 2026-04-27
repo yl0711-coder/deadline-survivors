@@ -100,7 +100,7 @@ class Game(
         return input_module.handle_keydown(self, key)
 
     def handle_achievements_input(self, key: int) -> None:
-        input_module.handle_achievements_input(self, key)
+        input_module.handle_progress_overlay_input(self, key)
 
     def handle_info_input(self, key: int) -> None:
         input_module.handle_info_input(self, key)

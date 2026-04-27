@@ -27,8 +27,8 @@ class InputRuntime(Protocol):
 
 
 def handle_keydown(game: InputRuntime, key: int) -> bool:
-    if game.state == "achievements":
-        handle_achievements_input(game, key)
+    if game.state in {"achievements", "history"}:
+        handle_progress_overlay_input(game, key)
         return False
     if game.state in {"help", "about"}:
         handle_info_input(game, key)
@@ -51,8 +51,8 @@ def handle_keydown(game: InputRuntime, key: int) -> bool:
     return False
 
 
-def handle_achievements_input(game: InputRuntime, key: int) -> None:
-    if key == pygame.K_ESCAPE or key in (pygame.K_a, pygame.K_BACKSPACE):
+def handle_progress_overlay_input(game: InputRuntime, key: int) -> None:
+    if key == pygame.K_ESCAPE or key in (pygame.K_a, pygame.K_h, pygame.K_BACKSPACE):
         game.state = game.menu_return_state
 
 
@@ -82,6 +82,10 @@ def handle_shared_menu_input(game: InputRuntime, key: int) -> bool:
     if key == pygame.K_a:
         game.menu_return_state = game.state
         game.state = "achievements"
+        return True
+    if key == pygame.K_h:
+        game.menu_return_state = game.state
+        game.state = "history"
         return True
     if key == pygame.K_b:
         game.cycle_badge()

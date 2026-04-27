@@ -70,6 +70,11 @@ class InputTest(unittest.TestCase):
         self.assertFalse(self.game.handle_keydown(pygame.K_BACKSPACE))
         self.assertEqual("game_over", self.game.state)
 
+        self.game.menu_return_state = "title"
+        self.game.state = "history"
+        self.assertFalse(self.game.handle_keydown(pygame.K_h))
+        self.assertEqual("title", self.game.state)
+
     def test_handle_keydown_shared_menu_shortcuts(self) -> None:
         self.game.state = "title"
 
@@ -84,6 +89,11 @@ class InputTest(unittest.TestCase):
 
         self.assertFalse(self.game.handle_keydown(pygame.K_a))
         self.assertEqual("achievements", self.game.state)
+        self.assertEqual("title", self.game.menu_return_state)
+
+        self.game.state = "title"
+        self.assertFalse(self.game.handle_keydown(pygame.K_h))
+        self.assertEqual("history", self.game.state)
         self.assertEqual("title", self.game.menu_return_state)
 
     def test_handle_keydown_game_over_menu_and_quick_restart(self) -> None:

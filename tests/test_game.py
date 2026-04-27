@@ -15,7 +15,7 @@ SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
 from deadline_survivors.game import ACCENT, ENEMY_TYPES, GREEN, OUTAGE_BOSS, Game
-from deadline_survivors.storage import load_progression
+from deadline_survivors.storage import load_progression, merge_progression
 import deadline_survivors
 
 
@@ -717,6 +717,10 @@ class GameTest(unittest.TestCase):
         self.assertTrue(progression["achievements"]["pair_flow"]["unlocked"])
         self.assertTrue(progression["achievements"]["review_cascade"]["unlocked"])
         self.assertTrue(progression["achievements"]["bug_tracker"]["unlocked"])
+        self.assertEqual(1, len(progression["run_history"]))
+        self.assertEqual("Hard", progression["run_history"][0]["difficulty"])
+        self.assertEqual(601, progression["run_history"][0]["survived"])
+        self.assertEqual(501, progression["run_history"][0]["resolved"])
 
     def test_progression_snapshot_persists_run_achievements_on_exit(self) -> None:
         self.game.start_run()
@@ -735,6 +739,7 @@ class GameTest(unittest.TestCase):
         self.assertTrue(progression["achievements"]["pair_flow"]["unlocked"])
         self.assertTrue(progression["achievements"]["review_cascade"]["unlocked"])
         self.assertFalse(progression["achievements"]["bug_tracker"]["unlocked"])
+        self.assertEqual([], progression["run_history"])
 
     def test_achievements_overlay_can_render_unlocked_and_locked_items(self) -> None:
         self.game.progression["achievements"]["first_deploy"]["unlocked"] = True
@@ -742,6 +747,38 @@ class GameTest(unittest.TestCase):
         self.game.state = "achievements"
 
         self.game.draw()
+
+    def test_history_overlay_can_render_empty_and_completed_runs(self) -> None:
+        self.game.state = "history"
+        self.game.draw()
+
+        self.game.start_run()
+        self.game.time_survived = 123.4
+        self.game.level = 6
+        self.game.stats["bugs_fixed"] = 12
+        self.game.stats["meetings_dodged"] = 3
+        self.game.stats["insight"] = 180
+        self.game.finalize_run_progression()
+        self.game.state = "history"
+
+        self.game.draw()
+
+    def test_run_history_keeps_recent_ten_runs(self) -> None:
+        for index in range(12):
+            self.game.start_run()
+            self.game.time_survived = float(30 + index)
+            self.game.level = index + 1
+            self.game.finalize_run_progression()
+
+        progression = load_progression()
+        self.assertEqual(10, len(progression["run_history"]))
+        self.assertEqual(41.0, progression["run_history"][0]["survived"])
+        self.assertEqual(32.0, progression["run_history"][-1]["survived"])
+
+    def test_merge_progression_adds_empty_run_history_for_old_saves(self) -> None:
+        progression = merge_progression({"totals": {"best_time": 12.0}})
+
+        self.assertEqual([], progression["run_history"])
 
     def test_achievement_unlocks_skin_and_cycle_persists_selection(self) -> None:
         self.assertEqual(["default"], self.game.unlocked_skins())

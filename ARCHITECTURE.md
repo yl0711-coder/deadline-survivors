@@ -24,7 +24,7 @@ The desktop launcher is intentionally thin:
 | `src/deadline_survivors/modules/renderer.py` | World rendering, player/enemy drawing, HUD, visual effects, and shared text blitting. |
 | `src/deadline_survivors/modules/overlay_renderer.py` | Non-world overlays: help, about, achievements, pause, level-up choices, and game-over report. |
 | `src/deadline_survivors/modules/progression.py` | Cosmetics, XP level choices, and run-long upgrade application. |
-| `src/deadline_survivors/modules/achievement_system.py` | Achievements, run evaluation labels, resolved-count summaries, and progression persistence hooks. |
+| `src/deadline_survivors/modules/achievement_system.py` | Achievements, run evaluation labels, resolved-count summaries, local run history, and progression persistence hooks. |
 | `src/deadline_survivors/modules/combat_system.py` | Projectile firing, enemy contact, combat resolution, XP shard pickup, powerups, chain shots, overclock burst, failsafe, and enemy kill side effects. |
 | `src/deadline_survivors/modules/director_system.py` | Encounter pressure: enemy spawning, crisis waves, boss spawning, hazards, and deploy-window objectives. |
 | `src/deadline_survivors/modules/player_system.py` | Player movement, momentum tiers, regeneration, pulse/drone build effects, and floating text feedback. |
@@ -47,7 +47,7 @@ The desktop launcher is intentionally thin:
 | Change enemy movement, boss behavior, hazards, or deploy windows | `modules/director_system.py`. |
 | Change projectile behavior, powerups, enemy rewards, or contact damage | `modules/combat_system.py`. |
 | Change upgrade effects, level-up choices, skins, badges, or patch themes | `modules/progression.py`. |
-| Change achievements, run evaluation text, resolved-count summaries, or progression snapshots | `modules/achievement_system.py`. |
+| Change achievements, run evaluation text, run history, resolved-count summaries, or progression snapshots | `modules/achievement_system.py`. |
 | Change player movement, momentum, regeneration, pulse, drone, or floating text feedback | `modules/player_system.py`. |
 | Change keyboard shortcuts or menu navigation | `modules/input.py`. |
 | Change the HUD, player visuals, enemy visuals, or world effects | `modules/renderer.py`. |

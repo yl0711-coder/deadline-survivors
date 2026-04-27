@@ -256,6 +256,59 @@ class OverlayRendererMixin:
         self.blit(self.font, "Press P to continue the deploy.", TEXT, 360, 330)
         self.blit(self.font, "Use Esc if you want to quit the run.", MUTED, 360, 375)
 
+    def draw_history_overlay(self) -> None:
+        self.draw_overlay_panel(150, 70, 980, 590)
+        self.blit(self.large_font, "Run History", TEXT, 200, 108)
+        self.blit(self.small_font, "H / Backspace / Esc return", ACCENT, 820, 126)
+
+        recent_runs = self.recent_run_history()
+        if not recent_runs:
+            self.blit(self.font, "No completed runs yet.", TEXT, 220, 220)
+            self.blit(self.small_font, "Finish a run to build your local history.", MUTED, 220, 260)
+            return
+
+        self.draw_history_best_card(self.best_run_history()[0])
+        self.draw_history_table(recent_runs)
+
+    def draw_history_best_card(self, best_run: dict) -> None:
+        rect = pygame.Rect(200, 168, 880, 92)
+        pygame.draw.rect(self.screen, BG, rect, border_radius=18)
+        pygame.draw.rect(self.screen, ACCENT, rect, 2, border_radius=18)
+        self.blit(self.small_font, "Best local run", MUTED, 226, 186)
+        self.blit(self.large_font, f"{float(best_run.get('survived', 0.0)):05.1f}s", TEXT, 226, 208)
+        self.blit(self.font, str(best_run.get("evaluation", "Unknown Run")), ACCENT, 470, 202)
+        self.blit(
+            self.small_font,
+            f"Lv {best_run.get('level', 1)}  {best_run.get('difficulty', '')}",
+            MUTED,
+            470,
+            234,
+        )
+        tags = best_run.get("tags", [])
+        if isinstance(tags, list):
+            for index, tag in enumerate(tags[:2]):
+                self.draw_equipped_chip(820, 188 + index * 32, str(tag), GREEN)
+
+    def draw_history_table(self, recent_runs: list[dict]) -> None:
+        self.blit(self.small_font, "Recent completed runs", MUTED, 204, 292)
+        headers = [("Time", 204), ("Run", 408), ("Diff", 516), ("Lv", 604), ("Resolved", 662), ("Build", 780)]
+        for label, x in headers:
+            self.blit(self.small_font, label, ACCENT, x, 324)
+
+        for index, entry in enumerate(recent_runs[:8]):
+            y = 356 + index * 31
+            row = pygame.Rect(198, y - 5, 884, 27)
+            if index % 2 == 0:
+                pygame.draw.rect(self.screen, BG, row, border_radius=8)
+            self.blit(self.small_font, str(entry.get("ended_at", ""))[5:16], MUTED, 204, y)
+            self.blit(self.small_font, f"{float(entry.get('survived', 0.0)):05.1f}s", TEXT, 408, y)
+            self.blit(self.small_font, str(entry.get("difficulty", "")), MUTED, 516, y)
+            self.blit(self.small_font, str(entry.get("level", 1)), MUTED, 604, y)
+            self.blit(self.small_font, str(entry.get("resolved", 0)), MUTED, 662, y)
+            tags = entry.get("tags", [])
+            build = " / ".join(str(tag) for tag in tags[:2]) if isinstance(tags, list) else ""
+            self.blit(self.small_font, build or str(entry.get("evaluation", "")), MUTED, 780, y)
+
     def draw_level_up_overlay(self) -> None:
         self.draw_overlay_panel(140, 120, 1000, 480)
         self.blit(self.large_font, "New Insight", TEXT, 200, 170)

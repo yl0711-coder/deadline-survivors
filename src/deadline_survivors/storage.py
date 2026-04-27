@@ -29,6 +29,8 @@ DEFAULT_ACHIEVEMENTS = {
     "bug_tracker": {"unlocked": False},
 }
 
+RUN_HISTORY_LIMIT = 10
+
 
 def save_path() -> Path:
     """Return the best writable save path for local game and progression data."""
@@ -55,6 +57,7 @@ def default_progression() -> dict:
         "selected_patch_theme": "default",
         "achievements": copy.deepcopy(DEFAULT_ACHIEVEMENTS),
         "totals": copy.deepcopy(DEFAULT_PROGRESS_TOTALS),
+        "run_history": [],
     }
 
 
@@ -115,7 +118,49 @@ def merge_progression(raw_progression: object) -> dict:
     if isinstance(selected_patch_theme, str):
         progression["selected_patch_theme"] = selected_patch_theme
 
+    progression["run_history"] = merge_run_history(raw_progression.get("run_history"))
     return progression
+
+
+def merge_run_history(raw_history: object) -> list[dict]:
+    """Return recent run history entries that match the current local schema."""
+    if not isinstance(raw_history, list):
+        return []
+
+    history = []
+    for raw_entry in raw_history[:RUN_HISTORY_LIMIT]:
+        if not isinstance(raw_entry, dict):
+            continue
+        entry = {
+            "ended_at": str(raw_entry.get("ended_at", "")),
+            "survived": float(raw_entry.get("survived", 0.0))
+            if isinstance(raw_entry.get("survived"), (int, float))
+            else 0.0,
+            "difficulty": str(raw_entry.get("difficulty", "")),
+            "level": int(raw_entry.get("level", 1)) if isinstance(raw_entry.get("level"), int) else 1,
+            "evaluation": str(raw_entry.get("evaluation", "")),
+            "resolved": int(raw_entry.get("resolved", 0))
+            if isinstance(raw_entry.get("resolved"), int)
+            else 0,
+            "insight": int(raw_entry.get("insight", 0))
+            if isinstance(raw_entry.get("insight"), int)
+            else 0,
+            "deploys": int(raw_entry.get("deploys", 0))
+            if isinstance(raw_entry.get("deploys"), int)
+            else 0,
+            "powerups": int(raw_entry.get("powerups", 0))
+            if isinstance(raw_entry.get("powerups"), int)
+            else 0,
+            "tags": merge_run_history_tags(raw_entry.get("tags")),
+        }
+        history.append(entry)
+    return history
+
+
+def merge_run_history_tags(raw_tags: object) -> list[str]:
+    if not isinstance(raw_tags, list):
+        return []
+    return [tag for tag in raw_tags[:2] if isinstance(tag, str)]
 
 
 def write_save_data(best_time: float, progression: dict) -> None:

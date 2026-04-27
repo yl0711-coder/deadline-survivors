@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from ..constants import ACCENT
 from ..content import ACHIEVEMENT_DEFS, ACHIEVEMENT_GROUPS
-from ..storage import save_progression
+from ..storage import RUN_HISTORY_LIMIT, save_progression
 
 
 class AchievementSystemMixin:
@@ -160,8 +162,38 @@ class AchievementSystemMixin:
         totals["best_time"] = max(float(totals["best_time"]), self.time_survived, self.best_time)
 
         self.apply_run_based_achievement_checks(include_cumulative=True)
+        self.record_run_history()
 
         save_progression(self.best_time, self.progression)
+
+    def record_run_history(self) -> None:
+        """Store a compact local summary for the most recent completed runs."""
+        title, _, tags = self.current_run_evaluation()
+        entry = {
+            "ended_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
+            "survived": round(self.time_survived, 1),
+            "difficulty": self.current_difficulty().label,
+            "level": self.level,
+            "evaluation": title,
+            "resolved": self.run_resolved_count(),
+            "insight": int(self.stats["insight"]),
+            "deploys": self.stats["deploys"],
+            "powerups": self.stats["powerups"],
+            "tags": tags[:2],
+        }
+        history = self.progression.setdefault("run_history", [])
+        history.insert(0, entry)
+        del history[RUN_HISTORY_LIMIT:]
+
+    def recent_run_history(self) -> list[dict]:
+        return list(self.progression.get("run_history", []))[:RUN_HISTORY_LIMIT]
+
+    def best_run_history(self) -> list[dict]:
+        return sorted(
+            self.recent_run_history(),
+            key=lambda entry: float(entry.get("survived", 0.0)),
+            reverse=True,
+        )
 
     def apply_run_based_achievement_checks(self, include_cumulative: bool) -> None:
         if self.selected_difficulty == "crunch" and self.time_survived >= 600:

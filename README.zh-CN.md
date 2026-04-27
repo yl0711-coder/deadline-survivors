@@ -55,6 +55,7 @@ py run_game.py
 - `Enter` / `Space`：确认菜单操作
 - `1`、`2`、`3`：选择难度或升级选项
 - `A`：打开成就页
+- `H`：打开本地历史记录
 - `B`：切换 badge
 - `S`：切换角色皮肤
 - `T`：切换 patch 主题色
@@ -71,6 +72,7 @@ py run_game.py
 - 抢占 Deploy Window，获得额外 insight、回血和 Focus Mode。
 - 移动可以积累 Momentum，高 Momentum 会强化 patch 和拾取节奏。
 - Production Outage 出现后要优先处理，否则会制造危险区并召唤支援敌人。
+- 按 `H` 可以查看最近 10 局完成记录，数据只保存在本地。
 
 ## 项目说明
 

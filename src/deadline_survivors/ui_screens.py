@@ -138,7 +138,7 @@ def draw_title_status_bar(
     game.blit(game.small_font, f"Difficulty: {difficulty.label}", ACCENT, x + 22, y + 16)
     game.blit(game.small_font, f"Best: {game.best_time:05.1f}s", MUTED, x + 220, y + 16)
     game.blit(game.small_font, "1 Easy   2 Medium   3 Hard", MUTED, x + 386, y + 16)
-    game.blit(game.small_font, "A achievements   S/B/T cosmetics", MUTED, x + 22, y + 46)
+    game.blit(game.small_font, "A achievements   H history   S/B/T cosmetics", MUTED, x + 22, y + 46)
 
 
 def draw_menu_option(

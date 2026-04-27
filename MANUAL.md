@@ -206,6 +206,18 @@ Some achievements now unlock cosmetic player skins. These can be cycled with `S`
 Achievements can also unlock lightweight badges. These can be cycled with `B` and are persisted locally in the same progression save.
 Achievements can also unlock patch themes. These can be cycled with `T`, persist locally, and still inherit momentum color shifts during `Flow` and `Overdrive`.
 
+### Local Run History
+
+Completed runs are stored locally in the same offline progression save.
+
+- Press `H` from the title or game-over screen to open the history page.
+- The page shows the best local run and the most recent completed runs.
+- Each entry stores survival time, difficulty, level, evaluation, resolved pressure, insight, deploys, powerups, and build tags.
+- Only the latest 10 completed runs are kept.
+- Quitting a run early with `Esc` preserves achievements and best time snapshots, but does not add a completed-run history entry.
+
+This is intentionally offline-first. It gives repeat runs more context without requiring accounts, servers, or a network leaderboard.
+
 ### Pause And Moment-To-Moment Feedback
 
 The run can now be paused with `P`.
