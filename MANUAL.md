@@ -326,6 +326,8 @@ PYINSTALLER_CONFIG_DIR=.pyinstaller
 
 Because PyInstaller is platform-native, binaries must be built on each target OS.
 
+On macOS, use `--onedir --windowed` to create a proper `.app` bundle. Do not use `--onefile --windowed` for the macOS app package.
+
 This repository includes CI builds for:
 
 - Windows
@@ -339,7 +341,7 @@ Tagged releases create platform-specific GitHub Release zip assets:
 - `deadline-survivors-macos-apple-silicon.zip`
 - `deadline-survivors-linux.zip`
 
-Use `macos-intel` for Intel Macs and `macos-apple-silicon` for M1 / M2 / M3 / M4 Macs. Each zip contains the packaged binary plus README and manual files. Create and push a tag such as `v0.2.2` to publish these release assets.
+Use `macos-intel` for Intel Macs and `macos-apple-silicon` for M1 / M2 / M3 / M4 Macs. macOS zips contain `deadline-survivors.app`; Windows and Linux zips contain a standalone executable. Create and push a tag such as `v0.2.3` to publish these release assets.
 
 ## Test Strategy
 

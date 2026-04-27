@@ -59,6 +59,13 @@ PYINSTALLER_CONFIG_DIR=.pyinstaller \
 pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline-survivors run_game.py
 ```
 
+macOS 应使用 `--onedir --windowed` 构建 `.app` 应用包，不要使用 `--onefile --windowed`：
+
+```bash
+PYINSTALLER_CONFIG_DIR=.pyinstaller \
+pyinstaller --noconfirm --clean --paths src --onedir --windowed --name deadline-survivors run_game.py
+```
+
 注意：
 
 - `PyInstaller` 不能跨平台交叉编译
@@ -80,7 +87,7 @@ pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline
 - `deadline-survivors-macos-apple-silicon.zip`
 - `deadline-survivors-linux.zip`
 
-Intel 芯片 Mac 下载 `macos-intel`，M1 / M2 / M3 / M4 这类 Apple Silicon Mac 下载 `macos-apple-silicon`。每个 zip 包里包含可运行程序、README 和手册。推送类似 `v0.2.2` 的 tag 后，GitHub Release 会自动附带这些文件。
+Intel 芯片 Mac 下载 `macos-intel`，M1 / M2 / M3 / M4 这类 Apple Silicon Mac 下载 `macos-apple-silicon`。macOS 包里包含 `deadline-survivors.app`，Windows 和 Linux 包里包含独立可执行文件。推送类似 `v0.2.3` 的 tag 后，GitHub Release 会自动附带这些文件。
 
 ## 操作方式
 

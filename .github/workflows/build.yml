@@ -36,7 +36,12 @@ jobs:
           PYTHONPATH: src
         run: python -m unittest discover -s tests
 
-      - name: Build binary
+      - name: Build macOS app bundle
+        if: runner.os == 'macOS'
+        run: pyinstaller --noconfirm --clean --paths src --onedir --windowed --name deadline-survivors run_game.py
+
+      - name: Build standalone binary
+        if: runner.os != 'macOS'
         run: pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline-survivors run_game.py
 
       - name: Upload artifacts
