@@ -2174,10 +2174,18 @@ class Game:
 
     def draw_hud(self) -> None:
         """Draw a compact translucent HUD so gameplay remains visible underneath."""
+        self.draw_hud_panel()
+        outage = self.draw_hud_phase_status()
+        self.draw_hud_player_bars()
+        self.draw_hud_build_status()
+        self.draw_hud_objective_hint(outage is not None)
+
+    def draw_hud_panel(self) -> None:
         panel = pygame.Rect(18, 18, 372, 144)
         draw_translucent_rect(self.screen, panel, PANEL, 150, 16)
         pygame.draw.rect(self.screen, GRID, panel, 1, border_radius=16)
 
+    def draw_hud_phase_status(self) -> EnemyState | None:
         self.blit(self.font, f"{self.current_phase().name}", TEXT, 28, 24)
         self.blit(self.small_font, f"Time {self.time_survived:05.1f}s", TEXT, 28, 58)
         self.blit(self.small_font, f"Lv {self.level}", TEXT, 170, 58)
@@ -2187,14 +2195,16 @@ class Game:
             self.blit(self.small_font, "Pager noise rising", RED, 170, 82)
         if self.crisis_banner_timer > 0:
             self.blit(self.font, self.crisis_name, RED, 500, 28)
+
         outage = next((enemy for enemy in self.enemies if enemy["type"].name == "Outage"), None)
         if outage is not None:
             ratio = max(0.0, min(1.0, outage["hp"] / outage.get("max_hp", outage["hp"])))
             draw_bar(self.screen, self.small_font, 500, 58, 260, 12, ratio, OUTAGE_COLOR, "Outage")
+        return outage
 
+    def draw_hud_player_bars(self) -> None:
         hp_ratio = max(0.0, self.player_hp / self.player_max_hp)
         xp_ratio = max(0.0, min(1.0, self.xp / self.xp_to_level))
-
         draw_bar(
             self.screen,
             self.small_font,
@@ -2229,6 +2239,7 @@ class Game:
             f"{self.momentum_tier}",
         )
 
+    def draw_hud_build_status(self) -> None:
         status_y = 24
         self.blit(self.small_font, "P pause  |  Esc quit", MUTED, 930, status_y)
         status_y += 24
@@ -2265,8 +2276,10 @@ class Game:
             status_y += 24
         if self.overclock_level > 0:
             self.blit(self.small_font, f"Overclock {self.overclock_level}", MUTED, 930, status_y)
+
+    def draw_hud_objective_hint(self, has_outage: bool) -> None:
         if self.objective is not None:
-            objective_y = 82 if outage is not None else 58
+            objective_y = 82 if has_outage else 58
             self.blit(self.small_font, "Optional: hold deploy window", GREEN, 500, objective_y)
 
     def draw_death_burst(self) -> None:
