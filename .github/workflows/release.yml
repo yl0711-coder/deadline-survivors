@@ -60,6 +60,24 @@ jobs:
         if: runner.os != 'macOS'
         run: pyinstaller --noconfirm --clean --paths src --onefile --windowed --name deadline-survivors run_game.py
 
+      - name: Smoke test Linux binary
+        if: runner.os == 'Linux'
+        env:
+          SDL_VIDEODRIVER: dummy
+        run: ./dist/deadline-survivors --smoke-test
+
+      - name: Smoke test Windows binary
+        if: runner.os == 'Windows'
+        env:
+          SDL_VIDEODRIVER: dummy
+        run: ./dist/deadline-survivors.exe --smoke-test
+
+      - name: Smoke test macOS app binary
+        if: runner.os == 'macOS'
+        env:
+          SDL_VIDEODRIVER: dummy
+        run: ./dist/deadline-survivors.app/Contents/MacOS/deadline-survivors --smoke-test
+
       - name: Prepare package
         shell: bash
         run: |

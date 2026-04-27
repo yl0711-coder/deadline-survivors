@@ -2856,4 +2856,8 @@ def main() -> int:
         print(f"Failed to start Deadline Survivors: {exc}", file=sys.stderr)
         return 1
 
+    if "--smoke-test" in sys.argv:
+        pygame.quit()
+        return 0
+
     return game.run()

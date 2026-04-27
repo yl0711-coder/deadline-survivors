@@ -48,6 +48,12 @@ class GameTest(unittest.TestCase):
             self.assertGreater(game.small_font.size("Deadline")[0], 0)
             self.assertGreater(game.large_font.size("Deadline")[0], 0)
 
+    def test_smoke_test_arg_initializes_and_exits(self) -> None:
+        from deadline_survivors.game import main
+
+        with patch.object(sys, "argv", ["deadline-survivors", "--smoke-test"]):
+            self.assertEqual(0, main())
+
     def test_all_upgrade_paths_are_callable(self) -> None:
         self.game.start_run()
         for key in {

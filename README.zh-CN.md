@@ -87,7 +87,13 @@ pyinstaller --noconfirm --clean --paths src --onedir --windowed --name deadline-
 - `deadline-survivors-macos-apple-silicon.zip`
 - `deadline-survivors-linux.zip`
 
-Intel 芯片 Mac 下载 `macos-intel`，M1 / M2 / M3 / M4 这类 Apple Silicon Mac 下载 `macos-apple-silicon`。macOS 包里包含 `deadline-survivors.app`，Windows 和 Linux 包里包含独立可执行文件。推送类似 `v0.2.4` 的 tag 后，GitHub Release 会自动附带这些文件。
+Intel 芯片 Mac 下载 `macos-intel`，M1 / M2 / M3 / M4 这类 Apple Silicon Mac 下载 `macos-apple-silicon`。macOS 包里包含 `deadline-survivors.app`，Windows 和 Linux 包里包含独立可执行文件。推送类似 `v0.2.5` 的 tag 后，GitHub Release 会自动附带这些文件。
+
+CI 会在每次 Release 构建时运行打包后二进制启动测试：
+
+```bash
+./deadline-survivors --smoke-test
+```
 
 ## 操作方式
 
