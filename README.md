@@ -1,8 +1,22 @@
 # Deadline Survivors
 
-A local single-player arcade survival game built with Python and `pygame-ce`.
+[![Build](https://github.com/yl0711-coder/deadline-survivors/actions/workflows/build.yml/badge.svg)](https://github.com/yl0711-coder/deadline-survivors/actions/workflows/build.yml)
+[![Latest Release](https://img.shields.io/github/v/release/yl0711-coder/deadline-survivors?label=release)](https://github.com/yl0711-coder/deadline-survivors/releases/latest)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+
+A tiny local arcade survival game about shipping patches while bugs, meetings, alerts, and production outages close in.
+
+No server. No account. No telemetry. Download a zip, unzip it, and play locally.
 
 You play as a backend engineer shipping patches while bugs, meetings, alerts, scope creep, deadlines, and production outages close in.
+
+## Why Try It
+
+- Fast to start: choose a difficulty and survive a short run.
+- Developer-themed enemies: Bugs, Meetings, Alerts, Scope Creep, Deadlines, and Production Outages.
+- Run variety: upgrades, powerups, deploy windows, achievements, badges, skins, local history, and options.
+- Desktop friendly: packaged builds for Windows, macOS Intel, macOS Apple Silicon, and Linux.
+- Open source: built with Python and `pygame-ce`, with tests, linting, typing, CI, and release packaging.
 
 ## Demo
 
@@ -20,7 +34,7 @@ You play as a backend engineer shipping patches while bugs, meetings, alerts, sc
 
 ## Play
 
-Download a zip package from GitHub Releases:
+Download a zip package from the [latest GitHub Release](https://github.com/yl0711-coder/deadline-survivors/releases/latest):
 
 - `deadline-survivors-windows.zip`
 - `deadline-survivors-macos-intel.zip`
@@ -28,6 +42,8 @@ Download a zip package from GitHub Releases:
 - `deadline-survivors-linux.zip`
 
 Intel Macs should use the Intel package. Apple Silicon Macs should use the Apple Silicon package.
+
+If your browser or operating system warns that the app is from an unidentified developer, that is expected for an unsigned open-source build. The game does not need network access and stores settings, achievements, and run history locally.
 
 ## Run From Source
 
@@ -88,3 +104,11 @@ For details:
 - [MANUAL.md](MANUAL.md): full player and maintainer guide
 - [ARCHITECTURE.md](ARCHITECTURE.md): code structure and refactoring rules
 - [README.zh-CN.md](README.zh-CN.md): Chinese README
+
+## Feedback
+
+Issues and gameplay feedback are welcome:
+
+- [Report a bug](https://github.com/yl0711-coder/deadline-survivors/issues/new)
+- [View releases](https://github.com/yl0711-coder/deadline-survivors/releases)
+- [Source repository](https://github.com/yl0711-coder/deadline-survivors)

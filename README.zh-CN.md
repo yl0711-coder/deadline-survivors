@@ -2,9 +2,23 @@
 
 [English](README.md) | 简体中文
 
-这是一个使用 Python 和 `pygame-ce` 开发的本地单机街机生存小游戏。
+[![Build](https://github.com/yl0711-coder/deadline-survivors/actions/workflows/build.yml/badge.svg)](https://github.com/yl0711-coder/deadline-survivors/actions/workflows/build.yml)
+[![Latest Release](https://img.shields.io/github/v/release/yl0711-coder/deadline-survivors?label=release)](https://github.com/yl0711-coder/deadline-survivors/releases/latest)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+
+这是一个关于“程序员一边修 bug，一边躲会议、告警、需求膨胀、deadline 和线上故障”的本地单机街机生存小游戏。
+
+不需要服务器，不需要账号，没有遥测统计。下载 zip，解压后就可以在本地玩。
 
 玩家扮演一名后端工程师，一边自动发出 patch，一边在 Bug、会议、告警、需求膨胀、deadline 区域和线上故障中尽量活下来。
+
+## 为什么值得试玩
+
+- 启动快：选择难度后直接开始一局短节奏生存挑战。
+- 设定明确：Bug、会议、告警、需求膨胀、deadline 区域和 Production Outage 都是敌人或压力源。
+- 局内有变化：升级、道具、Deploy Window、成就、badge、皮肤、本地历史记录和设置。
+- 桌面端友好：提供 Windows、macOS Intel、macOS Apple Silicon、Linux 四种 Release 包。
+- 开源可维护：使用 Python 和 `pygame-ce` 开发，包含测试、静态检查、类型检查、CI 和 Release 打包流程。
 
 ## 演示
 
@@ -22,7 +36,7 @@
 
 ## 游玩
 
-可以从 GitHub Releases 下载对应系统的 zip 包：
+可以从 [最新 GitHub Release](https://github.com/yl0711-coder/deadline-survivors/releases/latest) 下载对应系统的 zip 包：
 
 - `deadline-survivors-windows.zip`
 - `deadline-survivors-macos-intel.zip`
@@ -30,6 +44,8 @@
 - `deadline-survivors-linux.zip`
 
 Intel 芯片 Mac 使用 Intel 包，Apple Silicon 芯片 Mac 使用 Apple Silicon 包。
+
+如果浏览器或系统提示“来自未知开发者”，这是未签名开源构建的正常现象。游戏不需要联网，设置、成就和历史记录都只保存在本地。
 
 ## 从源码运行
 
@@ -90,3 +106,11 @@ py run_game.py
 - [MANUAL.md](MANUAL.md)：完整玩家和维护手册
 - [ARCHITECTURE.md](ARCHITECTURE.md)：代码结构和重构规则
 - [README.md](README.md)：英文 README
+
+## 反馈
+
+欢迎提交问题和试玩反馈：
+
+- [反馈 bug](https://github.com/yl0711-coder/deadline-survivors/issues/new)
+- [查看 Release](https://github.com/yl0711-coder/deadline-survivors/releases)
+- [源码仓库](https://github.com/yl0711-coder/deadline-survivors)
