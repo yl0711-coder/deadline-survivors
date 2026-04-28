@@ -289,7 +289,8 @@ Elite enemies can appear later in a run. They are shown with an orange outline a
 
 ## Gameplay Architecture
 
-`Game` still owns the main loop and most runtime state, but supporting modules now hold stable data, factories, pure rules, storage, audio, and reusable UI helpers.
+`Game` is composed from small feature modules. `game.py` is only the public entrypoint, while `runtime.py` owns pygame setup, the main loop, and top-level frame orchestration.
+
 The current separation is:
 
 - `content.py`: tunable game content such as enemies, upgrades, phases, difficulties, achievements, skins, badges, and patch themes
@@ -301,7 +302,19 @@ The current separation is:
 - `ui.py`: reusable drawing helpers
 - `ui_screens.py`: extracted screen-specific drawing helpers
 - `storage.py`: local save validation and persistence
-- `game.py`: main loop, input dispatch, runtime updates, collision handling, and remaining screen drawing
+- `game.py`: thin public entrypoint and compatibility exports
+- `modules/runtime.py`: lifecycle, pygame setup, frame orchestration, and run finalization
+- `modules/run_state.py`: run-local state initialization and reset behavior
+- `modules/input.py`: keyboard input, menu navigation, and screen transitions
+- `modules/renderer.py`: world rendering, HUD, player/enemy drawing, and visual effects
+- `modules/overlay_renderer.py`: help, about, achievements, history, options, pause, level-up, and game-over screens
+- `modules/progression.py`: level-up choices, cosmetics, patch themes, and run-long upgrade effects
+- `modules/achievement_system.py`: achievements, run evaluation, resolved-count summaries, local history, and progression snapshots
+- `modules/options_system.py`: settings, setting persistence, and clear-local-data flow
+- `modules/combat_system.py`: projectiles, enemy contact, combat resolution, insight pickup, and combat side effects
+- `modules/powerup_system.py`: powerup drops, pickup handling, healing, Refactor Bomb, and CI Boost
+- `modules/director_system.py`: enemy spawning, crisis waves, outage bosses, hazards, and deploy windows
+- `modules/player_system.py`: movement, momentum, regeneration, pulse/drone effects, and floating text feedback
 
 The runtime rules are:
 
@@ -339,7 +352,20 @@ deadline-survivors/
     ├── state_factory.py
     ├── ui.py
     ├── ui_screens.py
-    └── storage.py
+    ├── storage.py
+    └── modules/
+        ├── achievement_system.py
+        ├── combat_system.py
+        ├── director_system.py
+        ├── input.py
+        ├── options_system.py
+        ├── overlay_renderer.py
+        ├── player_system.py
+        ├── powerup_system.py
+        ├── progression.py
+        ├── renderer.py
+        ├── run_state.py
+        └── runtime.py
 ```
 
 ## Packaging Strategy
@@ -385,13 +411,14 @@ Tagged releases create platform-specific GitHub Release zip assets:
 - `deadline-survivors-macos-apple-silicon.zip`
 - `deadline-survivors-linux.zip`
 
-Use `macos-intel` for Intel Macs and `macos-apple-silicon` for M1 / M2 / M3 / M4 Macs. macOS zips contain `deadline-survivors.app`; Windows and Linux zips contain a standalone executable. Create and push a tag such as `v0.2.5` to publish these release assets.
+Use `macos-intel` for Intel Macs and `macos-apple-silicon` for Apple Silicon Macs. macOS zips contain `deadline-survivors.app`; Windows and Linux zips contain a standalone executable. Create and push a tag such as `v0.2.6` to publish these release assets.
 
 The release workflow also starts each packaged binary with `--smoke-test` before uploading zip assets.
 
 ## Test Strategy
 
 The project uses headless automated tests for the highest-risk runtime paths.
+`mypy` currently runs as a targeted check for pure rule and factory modules; the pygame mixin modules are covered by unit, rendering, input, smoke, and lint checks instead of full-module type checking.
 
 Current coverage includes:
 
@@ -406,8 +433,10 @@ Current coverage includes:
 - deploy objective completion
 - momentum reward scaling
 - powerup pickup and effects
+- local run history persistence and rendering
+- options toggles and clear-local-data confirmation
 - Multicast diminishing returns
-- input dispatch for title, help, achievements, game-over, pause, and level-up states
+- input dispatch for title, help, about, achievements, history, options, game-over, pause, and level-up states
 - package version metadata sync
 
 Run lint locally with:

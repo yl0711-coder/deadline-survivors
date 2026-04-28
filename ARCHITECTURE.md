@@ -83,6 +83,8 @@ Run these before committing structural changes:
 SDL_VIDEODRIVER=dummy .venv/bin/python run_game.py --smoke-test
 ```
 
+`mypy` is intentionally targeted at pure modules in `pyproject.toml`. The runtime feature modules are mixins that share attributes through the composed `Game` class, so full-package mypy will report mixin attribute errors until a future typing pass introduces shared protocols or a typed runtime context.
+
 ## Current Status
 
 The original monolithic `game.py` has been reduced to a thin compatibility entrypoint. Runtime behavior is split across input, renderer, overlay-renderer, progression, achievement-system, options, combat, powerup, director, player-system, and run-state modules. `runtime.py` now stays focused on pygame lifecycle, frame orchestration, and run finalization.

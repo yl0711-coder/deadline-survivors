@@ -10,15 +10,13 @@
 
 不需要服务器，不需要账号，没有遥测统计。下载 zip，解压后就可以在本地玩。
 
-玩家扮演一名后端工程师，一边自动发出 patch，一边在 Bug、会议、告警、需求膨胀、deadline 区域和线上故障中尽量活下来。
-
 ## 为什么值得试玩
 
 - 启动快：选择难度后直接开始一局短节奏生存挑战。
 - 设定明确：Bug、会议、告警、需求膨胀、deadline 区域和 Production Outage 都是敌人或压力源。
 - 局内有变化：升级、道具、Deploy Window、成就、badge、皮肤、本地历史记录和设置。
 - 桌面端友好：提供 Windows、macOS Intel、macOS Apple Silicon、Linux 四种 Release 包。
-- 开源可维护：使用 Python 和 `pygame-ce` 开发，包含测试、静态检查、类型检查、CI 和 Release 打包流程。
+- 开源可维护：使用 Python 和 `pygame-ce` 开发，包含测试、静态检查、重点模块类型检查、CI 和 Release 打包流程。
 
 ## 演示
 
@@ -100,6 +98,7 @@ py run_game.py
 - `PyInstaller`：生成 Windows、macOS、Linux 包
 - GitHub Actions：测试、打包后二进制 smoke test 和 Release zip
 - `ruff`：轻量静态检查
+- `mypy`：对纯规则和工厂模块做重点类型检查
 
 更多内容：
 

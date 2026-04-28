@@ -21,4 +21,4 @@ This patch adds offline player-facing quality-of-life features and continues the
 ## Verification
 
 - Source tests, lint, type checks, compile checks, and headless smoke test passed locally.
-- Packaged binary smoke tests will run in GitHub Actions when the release tag is pushed.
+- Packaged binary smoke tests run in GitHub Actions before Release assets are uploaded.

@@ -8,15 +8,13 @@ A tiny local arcade survival game about shipping patches while bugs, meetings, a
 
 No server. No account. No telemetry. Download a zip, unzip it, and play locally.
 
-You play as a backend engineer shipping patches while bugs, meetings, alerts, scope creep, deadlines, and production outages close in.
-
 ## Why Try It
 
 - Fast to start: choose a difficulty and survive a short run.
 - Developer-themed enemies: Bugs, Meetings, Alerts, Scope Creep, Deadlines, and Production Outages.
 - Run variety: upgrades, powerups, deploy windows, achievements, badges, skins, local history, and options.
 - Desktop friendly: packaged builds for Windows, macOS Intel, macOS Apple Silicon, and Linux.
-- Open source: built with Python and `pygame-ce`, with tests, linting, typing, CI, and release packaging.
+- Open source: built with Python and `pygame-ce`, with tests, linting, targeted type checks, CI, and release packaging.
 
 ## Demo
 
@@ -98,6 +96,7 @@ The game uses:
 - `PyInstaller` for Windows, macOS, and Linux packages
 - GitHub Actions for tests, packaged binary smoke tests, and release zips
 - `ruff` for lightweight linting
+- `mypy` for targeted type checks on pure rule and factory modules
 
 For details:
 
