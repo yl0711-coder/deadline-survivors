@@ -17,6 +17,7 @@ from .combat_system import CombatMixin
 from .director_system import DirectorMixin
 from .options_system import OptionsSystemMixin
 from .player_system import PlayerSystemMixin
+from .powerup_system import PowerupSystemMixin
 from .progression import ProgressionMixin
 from .renderer import RendererMixin
 from .run_state import RunStateMixin
@@ -36,6 +37,7 @@ class Game(
     DirectorMixin,
     OptionsSystemMixin,
     PlayerSystemMixin,
+    PowerupSystemMixin,
     RunStateMixin,
 ):
     def __init__(self) -> None:

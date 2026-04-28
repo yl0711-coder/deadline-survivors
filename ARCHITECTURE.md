@@ -26,7 +26,8 @@ The desktop launcher is intentionally thin:
 | `src/deadline_survivors/modules/progression.py` | Cosmetics, XP level choices, and run-long upgrade application. |
 | `src/deadline_survivors/modules/achievement_system.py` | Achievements, run evaluation labels, resolved-count summaries, local run history, and progression persistence hooks. |
 | `src/deadline_survivors/modules/options_system.py` | Player settings, setting persistence, and local save reset helpers. |
-| `src/deadline_survivors/modules/combat_system.py` | Projectile firing, enemy contact, combat resolution, XP shard pickup, powerups, chain shots, overclock burst, failsafe, and enemy kill side effects. |
+| `src/deadline_survivors/modules/combat_system.py` | Projectile firing, enemy contact, combat resolution, XP shard pickup, chain shots, overclock burst, failsafe, and enemy kill side effects. |
+| `src/deadline_survivors/modules/powerup_system.py` | Powerup drops, pickup handling, healing, refactor bomb damage, and CI Boost timing. |
 | `src/deadline_survivors/modules/director_system.py` | Encounter pressure: enemy spawning, crisis waves, boss spawning, hazards, and deploy-window objectives. |
 | `src/deadline_survivors/modules/player_system.py` | Player movement, momentum tiers, regeneration, pulse/drone build effects, and floating text feedback. |
 | `src/deadline_survivors/content.py` | Tunable content: enemy definitions, upgrades, phases, difficulties, achievements, skins, badges, and patch themes. |
@@ -46,7 +47,8 @@ The desktop launcher is intentionally thin:
 | --- | --- |
 | Add or tune an enemy | `content.py`, then `director_system.py` only if spawn behavior changes. |
 | Change enemy movement, boss behavior, hazards, or deploy windows | `modules/director_system.py`. |
-| Change projectile behavior, powerups, enemy rewards, or contact damage | `modules/combat_system.py`. |
+| Change projectile behavior, enemy rewards, or contact damage | `modules/combat_system.py`. |
+| Change Coffee Break, Refactor Bomb, CI Boost, or powerup drop behavior | `modules/powerup_system.py`. |
 | Change upgrade effects, level-up choices, skins, badges, or patch themes | `modules/progression.py`. |
 | Change achievements, run evaluation text, run history, resolved-count summaries, or progression snapshots | `modules/achievement_system.py`. |
 | Change sound/floating-text settings or clear-local-data behavior | `modules/options_system.py`. |
@@ -83,4 +85,4 @@ SDL_VIDEODRIVER=dummy .venv/bin/python run_game.py --smoke-test
 
 ## Current Status
 
-The original monolithic `game.py` has been reduced to a thin compatibility entrypoint. Runtime behavior is split across input, renderer, overlay-renderer, progression, achievement-system, options, combat, director, player-system, and run-state modules. `runtime.py` now stays focused on pygame lifecycle, frame orchestration, and run finalization.
+The original monolithic `game.py` has been reduced to a thin compatibility entrypoint. Runtime behavior is split across input, renderer, overlay-renderer, progression, achievement-system, options, combat, powerup, director, player-system, and run-state modules. `runtime.py` now stays focused on pygame lifecycle, frame orchestration, and run finalization.
