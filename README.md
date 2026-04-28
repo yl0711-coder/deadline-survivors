@@ -32,7 +32,11 @@ No server. No account. No telemetry. Download a zip, unzip it, and play locally.
 
 ## Play
 
-Download a zip package from the [latest GitHub Release](https://github.com/yl0711-coder/deadline-survivors/releases/latest):
+The easiest way to play is through the itch.io page:
+
+- [Download Deadline Survivors on itch.io](https://yl0711.itch.io/deadline-survivors)
+
+You can also download zip packages from the [latest GitHub Release](https://github.com/yl0711-coder/deadline-survivors/releases/latest):
 
 - `deadline-survivors-windows.zip`
 - `deadline-survivors-macos-intel.zip`
@@ -108,6 +112,7 @@ For details:
 
 Issues and gameplay feedback are welcome:
 
+- [itch.io page](https://yl0711.itch.io/deadline-survivors)
 - [Report a bug](https://github.com/yl0711-coder/deadline-survivors/issues/new)
 - [View releases](https://github.com/yl0711-coder/deadline-survivors/releases)
 - [Source repository](https://github.com/yl0711-coder/deadline-survivors)

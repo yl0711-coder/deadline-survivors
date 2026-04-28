@@ -34,7 +34,11 @@
 
 ## 游玩
 
-可以从 [最新 GitHub Release](https://github.com/yl0711-coder/deadline-survivors/releases/latest) 下载对应系统的 zip 包：
+最简单的试玩方式是通过 itch.io 页面下载：
+
+- [在 itch.io 下载 Deadline Survivors](https://yl0711.itch.io/deadline-survivors)
+
+也可以从 [最新 GitHub Release](https://github.com/yl0711-coder/deadline-survivors/releases/latest) 下载对应系统的 zip 包：
 
 - `deadline-survivors-windows.zip`
 - `deadline-survivors-macos-intel.zip`
@@ -110,6 +114,7 @@ py run_game.py
 
 欢迎提交问题和试玩反馈：
 
+- [itch.io 页面](https://yl0711.itch.io/deadline-survivors)
 - [反馈 bug](https://github.com/yl0711-coder/deadline-survivors/issues/new)
 - [查看 Release](https://github.com/yl0711-coder/deadline-survivors/releases)
 - [源码仓库](https://github.com/yl0711-coder/deadline-survivors)
