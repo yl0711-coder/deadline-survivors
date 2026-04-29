@@ -12,4 +12,4 @@ build/
 测试结果/
 assets/recordings/*.mov
 assets/recordings/*-palette.png
-.interview-docs/
+interview-docs/
